@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  generation-tests:
+    name: Generation invariants (pytest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install the test dependencies
+        run: python -m pip install --upgrade pip copier pytest pyyaml
+      - name: Run the generation suite
+        run: python -m pytest tests/ -q
+
+  render-and-validate:
+    name: Render, then run the shipped gates against the render
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install copier
+        run: python -m pip install --upgrade pip copier
+      # jq and the mikefarah yq both ship on the ubuntu-latest image; bats does not.
+      - name: Install bats
+        run: sudo apt-get update && sudo apt-get install -y bats
+      - name: Record the tool versions behind this job's claims
+        run: |
+          yq --version
+          jq --version
+          bats --version
+      - name: Render the template
+        run: copier copy --defaults --trust . /tmp/rka-render
+      - name: Run the shipped validator against the render's own knowledge/
+        working-directory: /tmp/rka-render
+        run: bash scripts/validate-frontmatter.sh knowledge
+      - name: Run the shipped BATS suite
+        run: bats /tmp/rka-render/tests/validate-frontmatter.bats
+
+  self-governance:
+    name: This repository obeys the standard it ships
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install copier
+        run: python -m pip install --upgrade pip copier
+      - name: Render the template
+        run: copier copy --defaults --trust . /tmp/rka-render
+      # The SHIPPED validator, not a copy of it: a schema change that breaks this
+      # repository's own knowledge/ must fail here rather than in a consumer's gate.
+      - name: Validate this repository's own knowledge/
+        run: bash /tmp/rka-render/scripts/validate-frontmatter.sh knowledge
+      - name: Reject em dashes in markdown
+        run: |
+          if grep -rPn '\x{2014}' --include='*.md' .; then
+            echo "::error::em dash (U+2014) found; use a plain dash instead" >&2
+            exit 1
+          fi

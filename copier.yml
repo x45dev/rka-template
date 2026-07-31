@@ -1,0 +1,81 @@
+# Copier configuration for the RKA governance template.
+#
+# Copier (not cookiecutter) is the engine because RKA is an evolving standard:
+# `copier copy` applies the governance layer to a new *or existing* repo, and
+# `copier update` re-applies template evolution to already-generated projects via
+# a three-way merge against the committed `.copier-answers.yml`. See
+# knowledge/adr/ADR-0002-adopt-copier-engine.md.
+
+project_name:
+  type: str
+  help: Human-readable project name
+  default: My Governed Project
+
+project_slug:
+  type: str
+  help: Repository / directory slug
+  # regex_replace strips anything outside the allowed set - an apostrophe or
+  # other punctuation in project_name would otherwise survive into directory
+  # names.
+  default: "{{ project_name|lower|replace(' ', '-')|replace('_', '-')|regex_replace('[^a-z0-9-]', '')|regex_replace('-+', '-')|regex_replace('^-|-$', '') }}"
+  # A project_name that is entirely punctuation/whitespace sanitizes to an
+  # empty (or otherwise illegal) slug via the default above - catch it here
+  # instead of silently emitting an empty directory name.
+  validator: >-
+    {% if not project_slug %}project_slug is empty - project_name must contain
+    at least one letter or digit, or supply project_slug explicitly.{% elif
+    not project_slug|regex_search('^[a-z0-9]+(-[a-z0-9]+)*$') %}project_slug
+    must be non-empty kebab-case (lowercase letters, digits, single
+    hyphens).{% endif %}
+
+description:
+  type: str
+  help: One-line description of the project
+  default: A repository with Repository Knowledge Architecture (RKA) governance.
+
+author_name:
+  type: str
+  help: Author name
+  default: Your Name
+
+# --- License (community file; shipped at the project root per GitHub convention) ---
+
+license:
+  type: str
+  help: License for the generated project
+  choices:
+    MIT: MIT
+    Proprietary (no LICENSE file, all rights reserved): Proprietary
+  default: MIT
+
+copyright_year:
+  type: str
+  help: Copyright year for the LICENSE
+  default: "2026"
+  when: "{{ license != 'Proprietary' }}"
+
+# Adopters on an older copier get a clean version error instead of a confusing failure.
+_min_copier_version: "9.4.0"
+
+# The rendered content lives under template/; everything else in this repo
+# (this file, README, the repo's own knowledge/) is not generated.
+_subdirectory: template
+
+# Every file under template/ is templated, so bare Jinja vars render in-place.
+# The corollary is that shipped scripts must not contain a "{" immediately
+# followed by "#" (the Jinja comment open); see AGENTS.md.
+_templates_suffix: ""
+
+_message_after_copy: |
+  Project {{ project_name }} initialized.
+  Next steps:
+
+    This project carries the RKA governance layer only - no task runner is
+    assumed. Wire the validator into whatever you already use:
+
+      bash scripts/validate-frontmatter.sh knowledge
+
+    It needs bash, awk, yq and jq on PATH. The shipped test suite for it runs
+    with bats:
+
+      bats tests/validate-frontmatter.bats

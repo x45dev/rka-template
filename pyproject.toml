@@ -1,0 +1,24 @@
+# Dev-only project for the template's OWN test suite. This file is NOT generated
+# into user projects (copier renders only `template/` via `_subdirectory`), so it
+# never reaches a generated repo. Run with `uv run pytest` or `python3 -m pytest`.
+[project]
+name = "rka-template-governance-tests"
+version = "0.0.0"
+description = "Generation tests for the RKA governance Copier template."
+requires-python = ">=3.11"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.0",
+    "copier>=9.4.0",
+    "pyyaml>=6.0.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+# This project exists only to host the test suite; there is nothing to build or
+# install, so uv should not try to package it.
+[tool.uv]
+package = false

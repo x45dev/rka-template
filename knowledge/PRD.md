@@ -1,0 +1,48 @@
+---
+id: PRD
+title: Product Requirements Document
+status: draft
+version: 0.1.0
+date: 2026-07-31
+type: prd
+---
+
+# Product Requirements Document
+
+This is the PRD for **the template itself**, not for a project generated from it.
+
+## 1. Introduction
+
+The RKA governance template is a single-purpose Copier template.
+It delivers the Repository Knowledge Architecture governance layer into a new or existing repository and carries no other layer.
+
+## 2. Goals
+
+- Let a repository adopt RKA without adopting a toolchain, a lint preset, or CI configuration alongside it.
+- Make the render safe to run at the root of an existing repository.
+- Keep the shipped validator runnable on a machine that has only bash, awk, yq and jq.
+- Prove, in this repository's own CI, that the standard being shipped is the standard being practised.
+
+## 3. Requirements
+
+### Functional
+
+- **FR1** A default render emits exactly: `knowledge/` (constitution, context, PRD, activeContext, progress, and a seed ADR), `scripts/validate-frontmatter.sh`, `tests/validate-frontmatter.bats`, `AGENTS.md`, `README.md`, `.gitignore`, `.copier-answers.yml`, and `LICENSE` unless the license answer is Proprietary.
+- **FR2** Six questions are asked: project name, project slug, description, author name, license, and copyright year.
+- **FR3** A `project_name` that sanitizes to an empty slug fails generation rather than emitting an illegal directory name.
+- **FR4** The shipped validator enforces the RKA frontmatter schema, the id and filename conventions, the constitution's presence, the optional bundle index, and the spec-bundle lifecycle rules.
+- **FR5** `AGENTS.md` carries no frontmatter and is not a governed document.
+- **FR6** A generated project carries a committed `.copier-answers.yml`, so `copier update` can re-apply later template evolution.
+
+### Non-functional
+
+- **NFR1** Generation invokes no external tool beyond Python and Copier.
+- **NFR2** The generation suite runs in seconds on a machine with only Python, Copier, pytest and PyYAML.
+- **NFR3** A `project_name` containing quotes, apostrophes, ampersands, angle brackets, or backslashes renders a project whose YAML still parses and whose frontmatter still validates.
+
+## 4. Out of scope
+
+- Any application scaffold.
+- Any task runner, lint, formatter, or CI configuration in the render.
+- A mechanical pin-to-tags gate in consumers.
+- An update path from the predecessor unified template.

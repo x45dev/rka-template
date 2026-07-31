@@ -1,0 +1,8 @@
+# Editor and tooling artifacts
+node_modules/
+
+# Editors / OS
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json

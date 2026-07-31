@@ -1,0 +1,4 @@
+# This file is managed by Copier; DO NOT EDIT MANUALLY.
+# It records the answers used to generate this repo from the RKA template so
+# that `copier update` can re-apply template evolution via a three-way merge.
+{{ _copier_answers|to_nice_yaml|trim }}
