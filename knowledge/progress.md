@@ -2,8 +2,8 @@
 id: progress
 title: Progress
 status: active
-version: 0.1.0
-date: 2026-07-31
+version: 0.1.1
+date: 2026-08-02
 type: context
 ---
 
@@ -17,13 +17,14 @@ The state of completion for the template repository.
 - The generation suite passes, covering render shape, unrendered Jinja, the Jinja comment-open trap in shipped scripts, YAML and JSON parsing, the empty-slug validator, the absence of frontmatter on `AGENTS.md`, the license arms, and a punctuation-hostile project name end to end.
 - The rendered validator accepts the rendered seed `knowledge/`, and the shipped BATS suite passes against the render.
 - This repository's own `knowledge/` passes the shipped validator, run from a render.
-- CI carries the three jobs that reproduce all of the above without a task runner.
+- Both yq flavours are covered by CI rather than by hand: the `render-and-validate` job runs the validator and the shipped BATS suite once under mikefarah (Go) yq and once under kislyuk (Python) yq, and asserts before each leg that the capability probe selected the branch that leg exists to exercise.
+- The repository is published at `github.com/x45dev/rka-template` with `v0.1.0` tagged on the remote, and CI is green on that commit.
+- `README.md` carries the consumer-facing migration guidance in two parts: "Brownfield adoption" for adopting into a repository that already has content, and "Consuming this template" for the copy-fresh rule and the absence of an update path from the predecessor.
 
 ## What's left
 
-- A remote, a first release tag, and the published repository name.
-- A consumer-facing migration note for projects moving off the predecessor unified template.
-- Coverage of the Python yq flavour in the validator probe; only one flavour has been exercised so far.
+Nothing planned.
+The one decision still outstanding is the owner's, recorded under "Decisions in flight" in `activeContext.md`: whether the seed documents move from `draft` to `canonical`.
 
 ## Known issues / limitations
 
@@ -32,3 +33,4 @@ The state of completion for the template repository.
 - There is no `copier update` path from the predecessor unified template.
   A project generated from it adopts this template copy-fresh, with a manual reconcile.
 - `README.md`, `AGENTS.md`, and `.gitignore` are consumer-owned after the first copy, so a later template change to any of them surfaces as a three-way merge conflict.
+- CI exercises one bash, awk, jq and bats each - whatever `ubuntu-latest` ships - so the validator's portability claim rests on its dependency list rather than on a matrix. The yq matrix exists because that dependency is the one the validator branches on at runtime; the others it merely calls.

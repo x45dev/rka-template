@@ -24,9 +24,15 @@ jobs:
         run: python -m pytest tests/ -q
 
   render-and-validate:
-    name: Render, then run the shipped gates against the render
+    # The validator picks a yq transcode form at runtime from a capability probe,
+    # so it has two execution paths and a single-flavour job only ever proves one.
+    name: Render, then run the shipped gates against the render (${{ matrix.yq_flavor }} yq)
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        yq_flavor: [mikefarah, kislyuk]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -37,11 +43,36 @@ jobs:
       # jq and the mikefarah yq both ship on the ubuntu-latest image; bats does not.
       - name: Install bats
         run: sudo apt-get update && sudo apt-get install -y bats
+      # Remove the preinstalled Go yq rather than shadowing it on PATH, so the
+      # assertion below cannot pass by accident on a PATH-ordering quirk.
+      - name: Install the kislyuk (Python) yq in place of the preinstalled Go one
+        if: matrix.yq_flavor == 'kislyuk'
+        run: |
+          preinstalled="$(command -v yq || true)"
+          if [ -n "$preinstalled" ]; then sudo rm -f "$preinstalled"; fi
+          python -m pip install yq
       - name: Record the tool versions behind this job's claims
         run: |
           yq --version
           jq --version
           bats --version
+      # Assert the branch this leg exists to exercise is the branch that will run.
+      # Without this the kislyuk leg silently degrades into a second Go-yq run the
+      # day an image change or a PATH order puts the wrong binary in front.
+      - name: Assert the capability probe selects this leg's yq branch
+        run: |
+          if printf 'probe: 1\n' | yq -o=json '.' > /dev/null 2>&1; then
+            selected=mikefarah
+          elif printf 'probe: 1\n' | yq '.' > /dev/null 2>&1; then
+            selected=kislyuk
+          else
+            selected=none
+          fi
+          echo "capability probe selected: $selected"
+          if [ "$selected" != "${{ matrix.yq_flavor }}" ]; then
+            echo "::error::expected the ${{ matrix.yq_flavor }} branch, probe selected $selected" >&2
+            exit 1
+          fi
       - name: Render the template
         run: copier copy --defaults --trust . /tmp/rka-render
       - name: Run the shipped validator against the render's own knowledge/
