@@ -32,6 +32,8 @@ The state of completion for the template repository.
   A bare `copier copy ... .` resolves Copier's default ref, which is the latest tag, so it rendered `v0.1.0` on any full clone.
   A repeated render into `/tmp/rka-render` conflicts on the first changed file and exits 1 without writing, leaving the validator and BATS rows - separate commands - examining the previous render; both documented render commands now clear the destination first.
   `tests/test_gate_invocations.py` holds both properties over `AGENTS.md`, `README.md` and the workflow, and was written failing against all six invocations before either was fixed.
+  An adversarial review of that guard then found four holes in it - a clean counted wherever it appeared rather than before the render, `/tmp` itself and `/var/tmp` fell outside the check by spelling, an indented fence was scored by its line, and a `&&`-chained command was parsed as copier's own argv - so the guard now carries unit tests over its own extraction, on inputs the documents do not contain.
+  That last part is the point: a guard over prose fails silently by construction, because a hole in it reads exactly like a document with no defect.
 
 ## What's left
 
