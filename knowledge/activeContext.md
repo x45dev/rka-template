@@ -32,6 +32,7 @@ The next work here is reactive: an adopter's report, or a change to the RKA stan
 
 `v0.1.0` is now behind the working tree in a way that matters to adopters: it ships the contested answers filename and the flagless update command.
 Cutting the next tag is what makes ADR-0004 reach anyone, and until then the README on the default branch documents behaviour that the released tag does not have.
+That tag carries a breaking change for `v0.1.0` adopters - the answers filename - so its release notes should lead with the one-line `git mv` migration in `README.md` rather than bury it in a file list.
 
 ## Naming the predecessor
 

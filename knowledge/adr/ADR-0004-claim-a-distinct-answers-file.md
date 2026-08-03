@@ -41,7 +41,7 @@ Copier falls back to `.copier-answers.yml`, finds whatever template that file na
 
 1. **Keep Copier's default `.copier-answers.yml`.**
    Rejected on behaviour 1: the collision resolves silently against the adopter, and the population most likely to hit it is the one this template was extracted to serve.
-   It also costs nothing to state and everything to reverse - the rename is free while the template has no consumers, and a breaking change for every consumer afterwards.
+   The rename is also cheapest now and dearer every release after: `v0.1.0` shipped the default name, so the cost is already non-zero and only grows.
 2. **Leave the default and document the collision.**
    Rejected because the collision is not survivable by documentation: there is no instruction that preserves both links, only a choice between which one to lose.
 3. **Protect the answers file with `_skip_if_exists`.**
@@ -51,6 +51,10 @@ Copier falls back to `.copier-answers.yml`, finds whatever template that file na
 
 ## Consequences
 
+- **This is a breaking change for anyone who adopted `v0.1.0`**, which shipped the default filename.
+  The documented update command cannot find their answers and exits 1 with `Cannot update because cannot obtain old template references from '.copier-answers.rka-template.yml'`.
+  The migration is a one-time `git mv .copier-answers.yml .copier-answers.rka-template.yml`, whose contents need no edit, and it is documented in `README.md` rather than left to be discovered.
+  No consumer is known - the repository has no forks and a code search finds no `_src_path` pointing at it - but "none found" is not "none exists", and the note costs one paragraph.
 - Adoption into an already-Copier-generated repository leaves that repository's answers file byte-for-byte intact, and the two coexist.
 - Every update against this template carries a flag, and forgetting it updates a different template rather than erroring.
 - `tests/test_generation.py::test_adoption_does_not_clobber_an_existing_answers_file` holds the property, by adopting into a directory that already carries a foreign answers file. It is deliberately separate from the render-shape assertion, which renders into an empty directory where no collision can occur.
@@ -64,3 +68,5 @@ Run on 2026-08-03 against a scratch template repository tagged `v0.2.0` and `v0.
 - `copier update --vcs-ref v0.3.0` without `-a` resolved `_src_path` from the foreign file and attempted to clone that other template;
 - `copier update -a .copier-answers.rka-template.yml --vcs-ref v0.3.0` applied the template change and advanced `_commit` to `v0.3.0`;
 - with `_answers_file` removed, the regression test fails: the foreign file is overwritten and the run still exits 0.
+
+A consumer generated from the published `v0.1.0` was then built and used to check the migration: the documented update command exits 1 with a readable message rather than a traceback, and after `git mv` to the new filename the same command exits 0 with `_src_path` and `_commit` unchanged.

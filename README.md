@@ -70,6 +70,22 @@ A `knowledge/` overwritten with stubs passes `validate-frontmatter.sh` with exit
 This template was extracted from a private unified template that also carried an application layer and a tooling preset.
 It shares no history with that predecessor and there is no `copier update` path from it: a project generated from the predecessor adopts this template with a fresh `copier copy` and a manual reconcile, not an update.
 
+**If you adopted `v0.1.0`, rename the answers file once.**
+That release recorded answers under Copier's default `.copier-answers.yml`, and the update command above cannot find them:
+
+```
+Cannot update because cannot obtain old template references from `.copier-answers.rka-template.yml`.
+```
+
+Rename it and updates work again; nothing inside the file changes.
+
+```bash
+git mv .copier-answers.yml .copier-answers.rka-template.yml
+copier update -a .copier-answers.rka-template.yml --vcs-ref <tag>
+```
+
+Do this before the first update past `v0.1.0`, and do it whichever order suits you - the rename alone is inert until you update.
+
 **Pin to release tags.**
 Update against tags only, so what arrives is a reviewed batch rather than whatever the default branch happens to be:
 
