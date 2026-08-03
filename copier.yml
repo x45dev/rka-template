@@ -3,8 +3,10 @@
 # Copier (not cookiecutter) is the engine because RKA is an evolving standard:
 # `copier copy` applies the governance layer to a new *or existing* repo, and
 # `copier update` re-applies template evolution to already-generated projects via
-# a three-way merge against the committed `.copier-answers.yml`. See
-# knowledge/adr/ADR-0002-adopt-copier-engine.md.
+# a three-way merge against the committed answers file. See
+# knowledge/adr/ADR-0002-adopt-copier-engine.md and
+# knowledge/adr/ADR-0004-claim-a-distinct-answers-file.md for this template's
+# answers filename.
 
 project_name:
   type: str
