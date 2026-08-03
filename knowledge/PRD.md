@@ -1,7 +1,7 @@
 ---
 id: PRD
 title: Product Requirements Document
-status: draft
+status: canonical
 version: 0.1.0
 date: 2026-07-31
 type: prd

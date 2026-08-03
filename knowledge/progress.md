@@ -2,8 +2,8 @@
 id: progress
 title: Progress
 status: active
-version: 0.1.1
-date: 2026-08-02
+version: 0.1.2
+date: 2026-08-03
 type: context
 ---
 
@@ -21,10 +21,14 @@ The state of completion for the template repository.
 - The repository is published at `github.com/x45dev/rka-template` with `v0.1.0` tagged on the remote, and CI is green on that commit.
 - `README.md` carries the consumer-facing migration guidance in two parts: "Brownfield adoption" for adopting into a repository that already has content, and "Consuming this template" for the copy-fresh rule and the absence of an update path from the predecessor.
 
+- The seed documents are `canonical`.
+  The owner promoted the constitution, `context.md`, the PRD and all three ADRs on 2026-08-03, on the evidence that CI was green on `v0.1.0` against the shipped validator and that the three ADRs survived a release unamended.
+  The transition carries no `version` or `date` bump on the promoted documents, per RKA RFC-003 section 3: a lifecycle transition alone is not a substantive edit.
+  `activeContext.md` and `progress.md` stay `active`, because working state is never authoritative.
+
 ## What's left
 
 Nothing planned.
-The one decision still outstanding is the owner's, recorded under "Decisions in flight" in `activeContext.md`: whether the seed documents move from `draft` to `canonical`.
 
 ## Known issues / limitations
 
