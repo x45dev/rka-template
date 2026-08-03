@@ -23,6 +23,7 @@ other gate.
 
 from __future__ import annotations
 
+import posixpath
 import re
 import shlex
 from pathlib import Path
@@ -99,9 +100,19 @@ def _destination_arg(command: str) -> str | None:
     return positional[1] if len(positional) >= 2 else None
 
 
+def _normalise(path: str) -> str:
+    """`path` with duplicate slashes collapsed and `..` resolved.
+
+    A string comparison against an un-normalised path is how a disposable
+    destination escapes the check: `//tmp/render` is `/tmp/render` to the
+    kernel and a non-match to `startswith`.
+    """
+    return posixpath.normpath(re.sub(r"/{2,}", "/", path))
+
+
 def _temp_root_of(destination: str) -> str | None:
     """The shared temporary root `destination` sits in or is, else None."""
-    normalised = destination.rstrip("/") or "/"
+    normalised = _normalise(destination)
     for root in _TEMP_ROOTS:
         if normalised == root or normalised.startswith(root + "/"):
             return root
@@ -109,9 +120,28 @@ def _temp_root_of(destination: str) -> str | None:
 
 
 def _clean_offsets(unit: str, destination: str) -> list[int]:
-    """Where in `unit` the render destination is removed, if anywhere."""
-    pattern = rf"rm -rf [^\n]*{re.escape(destination)}(\s|$)"
-    return [m.start() for m in re.finditer(pattern, unit)]
+    """Where in `unit` the render destination is removed, if anywhere.
+
+    Three things this must get right, each of which was wrong first time:
+
+    - A shell comment removes nothing, so a commented-out `rm -rf` is not a
+      clean however exactly it is spelled.
+    - The destination must sit on a path boundary. Without that, `rm -rf
+      /tmp/other/tmp/dst` counts as a clean of `/tmp/dst`, which is a different
+      directory that merely ends in the same characters.
+    - A trailing slash and surrounding quotes are the same path, and rejecting
+      them fails a document that is correct.
+    """
+    escaped = re.escape(destination)
+    pattern = rf"""rm\s+-rf\s[^\n]*?(?<![\w/.\-])['"]?{escaped}/?['"]?(?=\s|$)"""
+    offsets = []
+    for line_match in re.finditer(r"[^\n]*", unit):
+        line = line_match.group(0)
+        if line.lstrip().startswith("#"):
+            continue
+        for m in re.finditer(pattern, line):
+            offsets.append(line_match.start() + m.start())
+    return offsets
 
 
 def _unit_containing(text: str, offset: int) -> tuple[str, int]:
@@ -125,7 +155,7 @@ def _unit_containing(text: str, offset: int) -> tuple[str, int]:
     a list item is still copied whole. Missing that would score the block by its
     single line and reject a document that is not actually defective.
     """
-    fences = [m.start() for m in re.finditer(r"^[ \t]*```", text, re.MULTILINE)]
+    fences = [m.start() for m in re.finditer(r"^[ \t]*(?:```|~~~)", text, re.MULTILINE)]
     for start, end in zip(fences[::2], fences[1::2]):
         if start < offset < end:
             return text[start:end], offset - start
@@ -319,3 +349,55 @@ def test_a_clean_after_the_render_does_not_satisfy_the_guard() -> None:
     cleans = _clean_offsets(unit, "/tmp/dst")
     assert cleans, "the fixture no longer models a clean at all"
     assert min(cleans) > position, "the guard would accept a clean that runs too late"
+
+
+@pytest.mark.parametrize(
+    ("unit", "matches"),
+    [
+        ("rm -rf /tmp/dst", True),
+        ("rm -rf /tmp/dst/", True),  # a trailing slash is the same directory
+        ('rm -rf "/tmp/dst"', True),
+        ("rm -rf '/tmp/dst'", True),
+        ("rm -rf /tmp/src /tmp/dst", True),  # cleaned alongside another path
+        ("rm -rf /tmp/other/tmp/dst", False),  # a different path, same tail
+        ("# rm -rf /tmp/dst -- uncomment for a clean slate", False),
+        ("   # rm -rf /tmp/dst", False),  # indented comment, e.g. inside a block
+        ("rm -rf /tmp/dstination", False),  # the destination is a prefix, not the path
+    ],
+)
+def test_a_clean_is_recognised_by_path_not_by_substring(unit: str, matches: bool) -> None:
+    """The dangerous direction is a match that removes nothing.
+
+    A commented-out clean and a same-tailed sibling both read as hygiene and
+    leave the destination exactly as the previous render left it.
+    """
+    assert bool(_clean_offsets(unit, "/tmp/dst")) is matches
+
+
+@pytest.mark.parametrize(
+    ("destination", "expected"),
+    [
+        ("//tmp/rka-render", "/tmp"),  # the kernel reads this as /tmp/rka-render
+        ("/tmp//rka-render", "/tmp"),
+        ("/tmp/./rka-render", "/tmp"),
+        ("/tmp/../etc", None),  # resolves outside the temporary root
+        ("/var/tmp/../../etc", None),
+    ],
+)
+def test_temp_root_detection_normalises_the_path(
+    destination: str, expected: str | None
+) -> None:
+    """A string comparison against an unnormalised path is an escape hatch.
+
+    Both directions matter: an extra slash hides a disposable destination from
+    the clean-first rule, and a `..` drags a real one into it.
+    """
+    assert _temp_root_of(destination) == expected
+
+
+def test_a_tilde_fence_is_read_as_one_block() -> None:
+    """`~~~` is CommonMark's other fence and is copied whole just the same."""
+    text = "~~~bash\nrm -rf /tmp/dst\ncopier copy . /tmp/dst\n~~~\n"
+    unit, position = _unit_containing(text, text.index("copier copy"))
+    assert "rm -rf /tmp/dst" in unit, "the tilde-fenced block was not recognised"
+    assert min(_clean_offsets(unit, "/tmp/dst")) < position
