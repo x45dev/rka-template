@@ -31,29 +31,42 @@ This repository is a template first and a project second, and most mistakes here
 
 ## 3. Gates
 
-Run these locally before you consider a change done.
+Run this locally before you consider a change done.
 
-| Gate | Command |
+```bash
+bash dev/gates.sh
+```
+
+It is the same code CI runs.
+Individual gates take their names as arguments (`bash dev/gates.sh pytest render`), `--ref <ref>` renders a committed ref instead of the working tree, and `--strict` turns a gate that could not run into a failure.
+
+| Gate | What it checks |
 | --- | --- |
-| generation invariants | `python3 -m pytest tests/ -q` |
-| render (working tree) | `rm -rf /tmp/rka-src /tmp/rka-render && mkdir /tmp/rka-src && cp -a copier.yml template /tmp/rka-src/ && copier copy --defaults --trust /tmp/rka-src /tmp/rka-render` |
-| render (a committed ref) | `rm -rf /tmp/rka-render && copier copy --defaults --trust --vcs-ref HEAD . /tmp/rka-render` |
-| shipped validator, over the render | `(cd /tmp/rka-render && bash scripts/validate-frontmatter.sh knowledge)` |
-| self-governance | `bash /tmp/rka-render/scripts/validate-frontmatter.sh knowledge` from this repo's root |
-| shipped BATS suite | `bats /tmp/rka-render/tests/validate-frontmatter.bats` (see the prerequisites table in `README.md` if `bats` is absent) |
-| em dash | `grep -rPn '\x{2014}' --include='*.md' .` must find nothing |
+| `pytest` | generation invariants |
+| `render` | the working tree renders; the source every gate below reads |
+| `validate-render` | the render's seed `knowledge/`, by the render's own validator |
+| `validate-self` | this repository's `knowledge/`, by the *shipped* validator |
+| `bats` | the shipped BATS suite |
+| `em-dash` | no U+2014 in any markdown |
 
-Always verify against a `copier copy`-rendered project, never the template source: the render is the step that would silently eat a `{#`.
+**Do not restate these commands here or anywhere else.**
+They used to be written out in this table, twice in `README.md` and twice in the workflow, with a test that parsed them back out of the prose to check the copies had not drifted.
+Three rounds of adversarial review found twelve holes in that parser and none in the documents, which is what a guard over prose does: it fails silently, because a hole in it reads exactly like a document with no defect.
+`dev/gates.sh` holds the commands once and CI calls it, so the copies cannot disagree because there are none (ADR-0005).
+`tests/test_gate_invocations.py` is now a few small checks that this arrangement still holds, not a parser.
 
-**Never render with a bare `copier copy ... .`.**
-Copier's default ref for a git template is its latest *tag*, so that command renders the last release and every gate below it then reports on code you did not write.
-This repository is tagged, so the trap is live on any full clone.
-Render from the plain copy while you are working - it is the only form that sees uncommitted edits, and it is what `tests/conftest.py` does - and pin `--vcs-ref HEAD` once the work is committed.
+Two traps are closed inside the script, and both are worth knowing because each cost a session to find.
 
-**Clear the render directory before every render**, which is why both rows above open with `rm -rf`.
-Copier reads an existing `/tmp/rka-render` as an update, conflicts on the first file that differs, and in a non-interactive shell exits 1 having written nothing.
-The three rows beneath it are separate commands, so they then examine the render from last time and pass - the same trap as the bare `.` render, reached by a different route.
-`tests/test_gate_invocations.py` holds both properties over these rows, because a gate procedure delivered as prose has no other gate.
+**A bare `copier copy ... .` renders the latest *tag*, not your work.**
+This repository is tagged, so the trap is live on any full clone, and every gate chained off such a render reports on the last release while passing.
+The script renders the working tree through a plain directory copy, which is the only form that sees uncommitted edits and is what `tests/conftest.py` does.
+
+**Copier reads an existing destination as an update.**
+It conflicts on the first changed file and exits non-zero having written nothing, so a second render leaves the first one in place for the later gates to read.
+The script clears the destination first.
+
+Always verify against a rendered project, never the template source: the render is the step that would silently eat a `{#`.
 
 **A gate you could not run is not a gate that passed.**
-`bats` in particular is absent from many machines and is not a pip package; where a tool is missing, say which gate did not run rather than reporting the rest as green.
+`bats` is absent from many machines and is not a pip package, so the script names any gate that did not run instead of counting it green.
+Repeat that summary as it stands rather than describing the rest as passing.

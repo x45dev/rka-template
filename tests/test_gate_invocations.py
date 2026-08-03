@@ -1,403 +1,150 @@
-"""The gates must render the code under test, not the last release.
+"""The gate procedure has one definition, and CI runs that one.
 
-Copier's default ref for a git template is its latest *tag*. This repository is
-tagged, so `copier copy --defaults --trust . /tmp/rka-render` renders the last
-release - and every gate chained off that render then reports on code nobody
-just wrote, while passing. CI escapes it only because `actions/checkout` does
-not fetch tags by default, which makes the current behaviour accidental rather
-than chosen.
+Two traps make a gate examine code nobody just wrote. Copier's default ref for
+a git template is its latest *tag*, so an unpinned `copier copy ... .` renders
+the last release; and Copier reads an existing destination as an update,
+conflicting on the first changed file and exiting non-zero having written
+nothing, so a repeated render leaves the previous one for later gates to read.
+Both pass while reporting on the wrong code.
 
-A reused destination is the same failure by another route. Copier stops at the
-first conflict in a non-interactive run, so a second render into a directory
-that already holds one exits 1 having written nothing - and the gates chained
-off it are separate commands that will happily examine the render from last
-time. Both tests below therefore guard the same contract: the thing the gates
-examine is the code in front of you.
+This file used to hold those properties by parsing the commands back out of
+`AGENTS.md`, `README.md` and the workflow, because each document restated them.
+Three rounds of adversarial review found twelve holes in that parser and none
+in the documents. A guard over prose fails silently by construction: a hole in
+it is indistinguishable from a document with no defect, and the input domain -
+arbitrary markdown - has no edge.
 
-So: wherever this repository is named as the template the ref is pinned, and
-wherever a render has a fixed destination that destination is cleaned first.
-This test reads the documents and the workflow that carry those commands,
-because the delivery mechanism for a gate procedure is prose, and prose has no
-other gate.
+So the duplication was removed instead of policed (ADR-0005). `dev/gates.sh`
+holds the commands once, CI calls it, and what remains here are the few checks
+that the arrangement itself still holds. The parser is gone.
 """
 
 from __future__ import annotations
 
-import posixpath
 import re
-import shlex
 from pathlib import Path
 
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+GATE_SCRIPT = REPO_ROOT / "dev" / "gates.sh"
+WORKFLOWS = sorted((REPO_ROOT / ".github" / "workflows").glob("*.yml"))
 
-# Files that tell a human or an agent how to render this template.
-SOURCES = [
-    REPO_ROOT / "AGENTS.md",
-    REPO_ROOT / "README.md",
-    *sorted((REPO_ROOT / ".github" / "workflows").glob("*.yml")),
-]
+# Documents that instruct a human or an agent, as opposed to running anything.
+PROSE = [REPO_ROOT / "AGENTS.md", REPO_ROOT / "README.md"]
 
-# A `copier copy ...` command, stopping at whatever ends it in the surrounding
-# markup: a backtick, a table cell pipe, a comment, end of line.
-_COPIER_COPY = re.compile(r"copier copy [^`|\n#]*")
+# A render into a fixed scratch destination: the shape that has to live in the
+# script rather than in prose.
+_RENDER_INTO_TMP = re.compile(r"copier copy [^\n`]*?/tmp/")
 
-# Where a shell command ends and the next one begins. `&&` is the house style
-# for these rows, so without this the tokens of a *following* command are parsed
-# as copier's own argv and the positional extraction below reads whichever bare
-# word happens to land at the right index.
-#
-# The surrounding whitespace is optional because a `;` conventionally attaches
-# to the token before it. Splitting too eagerly can only cause a loud false
-# failure, never the silent false pass this whole module exists to prevent.
-_COMMAND_SEPARATOR = re.compile(r"\s*(?:&&|\|\||;)\s*")
-
-# Shared temporary roots. A render destination underneath one of these is
-# disposable and must be cleared; the root itself is never a legitimate
-# destination, whatever the machine calls it.
-_TEMP_ROOTS = ("/tmp", "/var/tmp", "/private/tmp", "/private/var/tmp")
+# A render of the PUBLISHED template, by URL. `README.md` documents one of
+# these in Brownfield adoption, where an adopter renders a release into a
+# scratch directory to diff against their own repository. That is an
+# instruction to someone else about a different repository, not a gate on this
+# one, so `dev/gates.sh` neither owns it nor could run it.
+_RENDERS_THE_PUBLISHED_TEMPLATE = re.compile(r"gh:|https?://")
 
 
-def _template_arg(command: str) -> str | None:
-    """The SRC of `copier copy [options] SRC DST`, or None if it cannot be read."""
-    try:
-        tokens = shlex.split(command)
-    except ValueError:
-        return None
-    positional = []
-    skip_next = False
-    for token in tokens[2:]:  # drop "copier copy"
-        if skip_next:
-            skip_next = False
-            continue
-        if token.startswith("-"):
-            # Options that take a separate value; everything else here is a flag.
-            if token in {"--vcs-ref", "--data", "-a", "--answers-file", "-r"}:
-                skip_next = True
-            continue
-        positional.append(token)
-    return positional[0] if len(positional) >= 2 else None
+def _gate_renders(text: str) -> list[str]:
+    """Render commands in a shell script, ignoring commented-out prose.
 
+    Backslash continuations are joined first, because a command split across
+    lines is still one command and reading half of it would report a render as
+    unpinned when the pin is on the next line.
 
-def _destination_arg(command: str) -> str | None:
-    """The DST of `copier copy [options] SRC DST`, or None if it cannot be read."""
-    try:
-        tokens = shlex.split(command)
-    except ValueError:
-        return None
-    positional = []
-    skip_next = False
-    for token in tokens[2:]:
-        if skip_next:
-            skip_next = False
-            continue
-        if token.startswith("-"):
-            if token in {"--vcs-ref", "--data", "-a", "--answers-file", "-r"}:
-                skip_next = True
-            continue
-        positional.append(token)
-    return positional[1] if len(positional) >= 2 else None
-
-
-def _normalise(path: str) -> str:
-    """`path` with duplicate slashes collapsed and `..` resolved.
-
-    A string comparison against an un-normalised path is how a disposable
-    destination escapes the check: `//tmp/render` is `/tmp/render` to the
-    kernel and a non-match to `startswith`.
+    Comments are dropped, because `dev/gates.sh` explains both traps in its own
+    prose, and a comment quoting the wrong command in order to warn about it is
+    not the script doing the wrong thing.
     """
-    return posixpath.normpath(re.sub(r"/{2,}", "/", path))
+    joined = re.sub(r"\\\n\s*", " ", text)
+    return [
+        line
+        for line in joined.splitlines()
+        if "copier copy" in line and not line.lstrip().startswith("#")
+    ]
 
 
-def _temp_root_of(destination: str) -> str | None:
-    """The shared temporary root `destination` sits in or is, else None."""
-    normalised = _normalise(destination)
-    for root in _TEMP_ROOTS:
-        if normalised == root or normalised.startswith(root + "/"):
-            return root
-    return None
+def test_the_gate_script_exists_and_is_executable() -> None:
+    """Guards the guard: every check below is vacuous without this."""
+    assert GATE_SCRIPT.is_file(), "dev/gates.sh is missing"
+    assert GATE_SCRIPT.stat().st_mode & 0o111, "dev/gates.sh is not executable"
 
 
-def _clean_offsets(unit: str, destination: str) -> list[int]:
-    """Where in `unit` the render destination is removed, if anywhere.
+@pytest.mark.parametrize("document", PROSE, ids=lambda p: p.name)
+def test_prose_does_not_restate_the_render(document: Path) -> None:
+    """The commands live in the script, so a document must not carry a copy.
 
-    Three things this must get right, each of which was wrong first time:
-
-    - A shell comment removes nothing, so a commented-out `rm -rf` is not a
-      clean however exactly it is spelled.
-    - The destination must sit on a path boundary. Without that, `rm -rf
-      /tmp/other/tmp/dst` counts as a clean of `/tmp/dst`, which is a different
-      directory that merely ends in the same characters.
-    - A trailing slash and surrounding quotes are the same path, and rejecting
-      them fails a document that is correct.
+    A second copy is what the deleted parser existed to police. Rather than
+    checking that the copies agree - which needs a parser, and a parser over
+    prose has no bottom - there is one copy and this asserts there are no
+    others.
     """
-    escaped = re.escape(destination)
-    pattern = rf"""rm\s+-rf\s[^\n]*?(?<![\w/.\-])['"]?{escaped}/?['"]?(?=\s|$)"""
-    offsets = []
-    for line_match in re.finditer(r"[^\n]*", unit):
-        line = line_match.group(0)
-        if line.lstrip().startswith("#"):
-            continue
-        for m in re.finditer(pattern, line):
-            offsets.append(line_match.start() + m.start())
-    return offsets
-
-
-def _unit_containing(text: str, offset: int) -> tuple[str, int]:
-    """The chunk a reader copies to run the command at `offset`, and where in it.
-
-    A fenced code block is copied whole, so a clean anywhere earlier in it
-    counts. Every other carrier - a table cell, a workflow's `run:` - is copied
-    one line at a time, so the clean has to be on the line itself.
-
-    Fences are matched with their indentation, because a fenced block nested in
-    a list item is still copied whole. Missing that would score the block by its
-    single line and reject a document that is not actually defective.
-    """
-    fences = [m.start() for m in re.finditer(r"^[ \t]*(?:```|~~~)", text, re.MULTILINE)]
-    for start, end in zip(fences[::2], fences[1::2]):
-        if start < offset < end:
-            return text[start:end], offset - start
-    line_start = text.rfind("\n", 0, offset) + 1
-    line_end = text.find("\n", offset)
-    unit = text[line_start:] if line_end == -1 else text[line_start:line_end]
-    return unit, offset - line_start
-
-
-def _commands() -> list[tuple[Path, str, str, int]]:
-    found = []
-    for path in SOURCES:
-        if not path.is_file():
-            continue
-        text = path.read_text()
-        for match in _COPIER_COPY.finditer(text):
-            # Truncate at the next shell command so the argv parsed below is
-            # copier's own and nothing else.
-            raw = _COMMAND_SEPARATOR.split(match.group(0))[0]
-            command = raw.strip().rstrip("\\").strip()
-            unit, position = _unit_containing(text, match.start())
-            found.append((path, command, unit, position))
-    return found
-
-
-def test_sources_exist() -> None:
-    """Guards the guard: a renamed doc must not turn this into a no-op pass."""
-    missing = [str(p.relative_to(REPO_ROOT)) for p in SOURCES if not p.is_file()]
-    assert not missing, f"gate documentation moved or was deleted: {missing}"
-    assert _commands(), "no `copier copy` invocations found; the regex or the docs moved"
-
-
-@pytest.mark.parametrize(
-    ("source", "command", "unit", "position"),
-    _commands(),
-    ids=[f"{p.name}:{i}" for i, (p, _, _, _) in enumerate(_commands())],
-)
-def test_renders_never_target_a_shared_temporary_root(
-    source: Path, command: str, unit: str, position: int
-) -> None:
-    """No documented render may write to `/tmp` itself, or any spelling of it.
-
-    The clean-first rule below cannot apply here: the remedy for a reused
-    destination is to delete it, and deleting a shared temporary root is the one
-    outcome worse than the defect. Such a destination is rejected outright
-    rather than exempted, which is how it slipped through - `/tmp` is not a
-    prefix of `/tmp/`.
-    """
-    destination = _destination_arg(command)
-    if destination is None:
-        return
-    assert _temp_root_of(destination) != destination.rstrip("/"), (
-        f"{source.relative_to(REPO_ROOT)} renders into the shared temporary root "
-        f"{destination}, which cannot be cleared safely; render into a named "
-        f"subdirectory of it:\n  {command}"
+    restated = [
+        command
+        for command in _RENDER_INTO_TMP.findall(document.read_text())
+        if not _RENDERS_THE_PUBLISHED_TEMPLATE.search(command)
+    ]
+    assert not restated, (
+        f"{document.relative_to(REPO_ROOT)} restates a render command:\n"
+        f"  {restated}\n"
+        f"Put it in dev/gates.sh and point at it instead; a second copy is a "
+        f"copy that can drift."
     )
 
 
-@pytest.mark.parametrize(
-    ("source", "command", "unit", "position"),
-    _commands(),
-    ids=[f"{p.name}:{i}" for i, (p, _, _, _) in enumerate(_commands())],
-)
-def test_renders_into_a_fixed_destination_clean_it_first(
-    source: Path, command: str, unit: str, position: int
-) -> None:
-    """A render into a fixed path must remove that path first, in the same breath.
+@pytest.mark.parametrize("workflow", WORKFLOWS, ids=lambda p: p.name)
+def test_ci_calls_the_script_rather_than_the_commands(workflow: Path) -> None:
+    """CI running its own copy would be the same duplication by another name.
 
-    Copier treats an existing destination as an update, conflicts on the first
-    file that differs, and in a non-interactive run exits 1 having applied
-    nothing. The render is then last run's, and the validator and BATS rows that
-    follow are separate commands with no way to know it.
-
-    Destinations under a temporary root only: the adopter-facing `copier copy
-    gh:... .` renders into a repository, where removing the destination is the
-    opposite of what anyone wants. Every shared root is recognised, because the
-    exemption is what keeps a real destination unguarded and `/var/tmp` is one
-    spelling away from `/tmp`.
-
-    The clean must precede the render. A `rm -rf` afterwards leaves exactly the
-    window this guards - the render reads the previous one and only then is the
-    evidence destroyed.
+    This is the property that makes the arrangement work: because CI executes
+    the script, a wrong command in it fails loudly and immediately, which is
+    the enforcement the prose parser was standing in for.
     """
-    destination = _destination_arg(command)
-    if destination is None or _temp_root_of(destination) is None:
-        return
-    cleans = _clean_offsets(unit, destination)
-    assert cleans, (
-        f"{source.relative_to(REPO_ROOT)} renders into {destination} without clearing it, "
-        f"so a second run conflicts and the gates below examine the previous "
-        f"render:\n  {command}"
+    text = workflow.read_text()
+    assert not _RENDER_INTO_TMP.findall(text), (
+        f"{workflow.relative_to(REPO_ROOT)} renders directly instead of "
+        f"calling dev/gates.sh, so CI and the documented procedure can drift"
     )
-    assert min(cleans) < position, (
-        f"{source.relative_to(REPO_ROOT)} clears {destination} only AFTER rendering into "
-        f"it, which is the same defect: the render still reads the previous one:\n  {command}"
+    assert "dev/gates.sh" in text, (
+        f"{workflow.relative_to(REPO_ROOT)} does not call dev/gates.sh"
     )
 
 
-@pytest.mark.parametrize(
-    ("source", "command", "unit", "position"),
-    _commands(),
-    ids=[f"{p.name}:{i}" for i, (p, _, _, _) in enumerate(_commands())],
-)
-def test_renders_of_this_repository_pin_the_ref(
-    source: Path, command: str, unit: str, position: int
-) -> None:
-    """A `copier copy` whose template is `.` must pin `--vcs-ref`.
+def test_the_script_renders_the_code_under_test() -> None:
+    """The two traps, asserted against the one file that can now carry them.
 
-    Invocations that name a URL (the adopter-facing usage) or a plain directory
-    (the working-tree render) are untouched: neither resolves a tag in this
-    repository, so neither can silently fall back to the last release.
+    Checking a single known-shape script is tractable in a way that checking
+    arbitrary prose was not, which is the whole reason this file is short now.
     """
-    if _template_arg(command) != ".":
-        return
-    assert "--vcs-ref" in command, (
-        f"{source.relative_to(REPO_ROOT)} renders this repository without --vcs-ref, "
-        f"so it renders the latest tag rather than the code under test:\n  {command}"
+    text = GATE_SCRIPT.read_text()
+
+    assert 'rm -rf "${RENDER_DIR}"' in text, (
+        "the render destination is not cleared, so a repeated render conflicts "
+        "and every later gate reads the previous render"
     )
 
-
-# The guard is the only mechanism holding a procedure that ships as prose, so a
-# hole in it is silent by construction: it keeps passing. These exercise the
-# extraction directly, on inputs the documents do not currently contain. Each
-# one failed before the fix it describes.
-
-
-@pytest.mark.parametrize(
-    ("destination", "expected"),
-    [
-        ("/tmp/rka-render", "/tmp"),
-        ("/tmp/", "/tmp"),
-        ("/tmp", "/tmp"),
-        ("/var/tmp/rka-render", "/var/tmp"),
-        ("/private/tmp/rka-render", "/private/tmp"),  # macOS resolves /tmp here
-        ("/tmpfile", None),  # a prefix match is not a path match
-        ("/home/dev/render", None),
-        (".", None),
-    ],
-)
-def test_temp_root_detection_is_by_path_not_by_prefix(
-    destination: str, expected: str | None
-) -> None:
-    assert _temp_root_of(destination) == expected
+    renders = _gate_renders(text)
+    assert renders, "dev/gates.sh no longer renders anything"
+    for render in renders:
+        pins_ref = "--vcs-ref" in render
+        renders_a_copy = "SOURCE_DIR" in render
+        assert pins_ref or renders_a_copy, (
+            "dev/gates.sh renders this repository without pinning --vcs-ref "
+            "and without going through the plain-copy directory, so it renders "
+            f"the latest tag rather than the code under test:\n  {render}"
+        )
 
 
-@pytest.mark.parametrize(
-    ("text", "expected_src", "expected_dst"),
-    [
-        # Both positionals present: truncating changes nothing, because the
-        # extraction is by index and the indices happen to line up.
-        (
-            "copier copy --defaults /tmp/src /tmp/dst && bash /tmp/dst/scripts/x.sh",
-            "/tmp/src",
-            "/tmp/dst",
-        ),
-        # One positional: without truncation the chained command donates the
-        # bare words that the index lands on, and `&&` is read as a destination.
-        ("copier copy . && echo done", None, None),
-        ("copier copy /tmp/src; ls /tmp/dst", None, None),
-    ],
-)
-def test_a_chained_command_is_not_parsed_as_copier_argv(
-    text: str, expected_src: str | None, expected_dst: str | None
-) -> None:
-    """`&&` is the house style for these rows, so the argv must stop at it.
+def test_a_skipped_gate_is_reported_rather_than_counted_as_passing() -> None:
+    """A tool that is absent must not read as a gate that passed.
 
-    The two-positional case is the one the documents use today and it survives
-    either way; the one-positional cases are where index luck runs out.
+    `bats` is the live case: it is absent from many machines and is not a pip
+    package, so this is the difference between an honest local report and a
+    green one.
     """
-    raw = _COMMAND_SEPARATOR.split(_COPIER_COPY.search(text).group(0))[0]
-    assert _destination_arg(raw) == expected_dst
-    assert _template_arg(raw) == expected_src
-
-
-def test_an_indented_fence_is_still_read_as_one_block() -> None:
-    """A fenced block inside a list item is copied whole, like any other."""
-    text = "1. Render:\n\n   ```bash\n   rm -rf /tmp/dst\n   copier copy . /tmp/dst\n   ```\n"
-    unit, position = _unit_containing(text, text.index("copier copy"))
-    assert "rm -rf /tmp/dst" in unit, "the enclosing block was not recognised"
-    assert unit.index("rm -rf") < position
-
-
-def test_a_clean_after_the_render_does_not_satisfy_the_guard() -> None:
-    """The window this guards is open until the render happens, not after it.
-
-    A trailing `rm -rf` looks like hygiene and is not: the render has already
-    read the previous one by the time it runs.
-    """
-    unit = "copier copy --defaults . /tmp/dst && rm -rf /tmp/dst"
-    position = unit.index("copier copy")
-    cleans = _clean_offsets(unit, "/tmp/dst")
-    assert cleans, "the fixture no longer models a clean at all"
-    assert min(cleans) > position, "the guard would accept a clean that runs too late"
-
-
-@pytest.mark.parametrize(
-    ("unit", "matches"),
-    [
-        ("rm -rf /tmp/dst", True),
-        ("rm -rf /tmp/dst/", True),  # a trailing slash is the same directory
-        ('rm -rf "/tmp/dst"', True),
-        ("rm -rf '/tmp/dst'", True),
-        ("rm -rf /tmp/src /tmp/dst", True),  # cleaned alongside another path
-        ("rm -rf /tmp/other/tmp/dst", False),  # a different path, same tail
-        ("# rm -rf /tmp/dst -- uncomment for a clean slate", False),
-        ("   # rm -rf /tmp/dst", False),  # indented comment, e.g. inside a block
-        ("rm -rf /tmp/dstination", False),  # the destination is a prefix, not the path
-    ],
-)
-def test_a_clean_is_recognised_by_path_not_by_substring(unit: str, matches: bool) -> None:
-    """The dangerous direction is a match that removes nothing.
-
-    A commented-out clean and a same-tailed sibling both read as hygiene and
-    leave the destination exactly as the previous render left it.
-    """
-    assert bool(_clean_offsets(unit, "/tmp/dst")) is matches
-
-
-@pytest.mark.parametrize(
-    ("destination", "expected"),
-    [
-        ("//tmp/rka-render", "/tmp"),  # the kernel reads this as /tmp/rka-render
-        ("/tmp//rka-render", "/tmp"),
-        ("/tmp/./rka-render", "/tmp"),
-        ("/tmp/../etc", None),  # resolves outside the temporary root
-        ("/var/tmp/../../etc", None),
-    ],
-)
-def test_temp_root_detection_normalises_the_path(
-    destination: str, expected: str | None
-) -> None:
-    """A string comparison against an unnormalised path is an escape hatch.
-
-    Both directions matter: an extra slash hides a disposable destination from
-    the clean-first rule, and a `..` drags a real one into it.
-    """
-    assert _temp_root_of(destination) == expected
-
-
-def test_a_tilde_fence_is_read_as_one_block() -> None:
-    """`~~~` is CommonMark's other fence and is copied whole just the same."""
-    text = "~~~bash\nrm -rf /tmp/dst\ncopier copy . /tmp/dst\n~~~\n"
-    unit, position = _unit_containing(text, text.index("copier copy"))
-    assert "rm -rf /tmp/dst" in unit, "the tilde-fenced block was not recognised"
-    assert min(_clean_offsets(unit, "/tmp/dst")) < position
+    text = GATE_SCRIPT.read_text()
+    assert "SKIPPED" in text, "dev/gates.sh does not track gates that did not run"
+    assert "--strict" in text, (
+        "dev/gates.sh has no --strict mode, so CI cannot make a missing tool "
+        "fatal and the suite could silently stop running"
+    )

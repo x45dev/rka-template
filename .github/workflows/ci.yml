@@ -1,5 +1,10 @@
 name: CI
 
+# Every job below calls dev/gates.sh rather than spelling out the commands.
+# That is the point of the script: CI and the documented local procedure are
+# the same code, so they cannot drift. A command written out here again would
+# reintroduce exactly the duplication ADR-0005 removed.
+
 on:
   push:
     branches: [main]
@@ -21,7 +26,7 @@ jobs:
       - name: Install the test dependencies
         run: python -m pip install --upgrade pip copier pytest pyyaml
       - name: Run the generation suite
-        run: python -m pytest tests/ -q
+        run: bash dev/gates.sh pytest
 
   render-and-validate:
     # The validator picks a yq transcode form at runtime from a capability probe,
@@ -73,24 +78,16 @@ jobs:
             echo "::error::expected the ${{ matrix.yq_flavor }} branch, probe selected $selected" >&2
             exit 1
           fi
-      - name: Render the template
-        # --vcs-ref HEAD is load-bearing. Copier's default ref for a git template
-        # is its latest TAG, so the bare command renders the last release rather
-        # than the commit under test. It only renders HEAD here because
-        # actions/checkout does not fetch tags by default - setting fetch-tags or
-        # fetch-depth: 0 for any unrelated reason would silently turn every gate
-        # below into a re-test of the last release. Pin the ref instead of relying
-        # on that.
-        #
-        # The rm is redundant on a fresh runner and kept anyway: it makes the
-        # step self-contained rather than dependent on the runner's state, and
-        # it is the same command the local gates document.
-        run: rm -rf /tmp/rka-render && copier copy --defaults --trust --vcs-ref HEAD . /tmp/rka-render
-      - name: Run the shipped validator against the render's own knowledge/
-        working-directory: /tmp/rka-render
-        run: bash scripts/validate-frontmatter.sh knowledge
-      - name: Run the shipped BATS suite
-        run: bats /tmp/rka-render/tests/validate-frontmatter.bats
+      # --ref HEAD renders the commit under test. Copier's default ref for a git
+      # template is its latest TAG, so an unpinned render would re-test the last
+      # release; it resolves to HEAD here only because actions/checkout does not
+      # fetch tags, which is an accident to pin rather than rely on.
+      #
+      # --strict makes a gate that could not run a failure. bats is installed
+      # above, so this is what catches the image dropping it rather than the
+      # suite silently ceasing to run.
+      - name: Render and run the shipped gates against it
+        run: bash dev/gates.sh --strict --ref HEAD render validate-render bats
 
   self-governance:
     name: This repository obeys the standard it ships
@@ -103,26 +100,8 @@ jobs:
           python-version: "3.12"
       - name: Install copier
         run: python -m pip install --upgrade pip copier
-      - name: Render the template
-        # --vcs-ref HEAD is load-bearing. Copier's default ref for a git template
-        # is its latest TAG, so the bare command renders the last release rather
-        # than the commit under test. It only renders HEAD here because
-        # actions/checkout does not fetch tags by default - setting fetch-tags or
-        # fetch-depth: 0 for any unrelated reason would silently turn every gate
-        # below into a re-test of the last release. Pin the ref instead of relying
-        # on that.
-        #
-        # The rm is redundant on a fresh runner and kept anyway: it makes the
-        # step self-contained rather than dependent on the runner's state, and
-        # it is the same command the local gates document.
-        run: rm -rf /tmp/rka-render && copier copy --defaults --trust --vcs-ref HEAD . /tmp/rka-render
-      # The SHIPPED validator, not a copy of it: a schema change that breaks this
-      # repository's own knowledge/ must fail here rather than in a consumer's gate.
-      - name: Validate this repository's own knowledge/
-        run: bash /tmp/rka-render/scripts/validate-frontmatter.sh knowledge
-      - name: Reject em dashes in markdown
-        run: |
-          if grep -rPn '\x{2014}' --include='*.md' .; then
-            echo "::error::em dash (U+2014) found; use a plain dash instead" >&2
-            exit 1
-          fi
+      # validate-self runs the SHIPPED validator over this repository's own
+      # knowledge/, not a copy of it, so a change to the shipped schema has to
+      # migrate these documents in the same change.
+      - name: Validate this repository with the validator it ships
+        run: bash dev/gates.sh --strict --ref HEAD render validate-self em-dash

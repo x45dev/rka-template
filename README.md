@@ -105,29 +105,12 @@ The RKA standard - the RFCs, the constitution, and the reasoning behind the life
 This repository governs itself with the standard it ships: its own `knowledge/` is validated in CI by the very script under `template/`.
 
 ```bash
-python3 -m pytest tests/ -q                        # generation invariants
-
-# Render the WORKING TREE. A bare `copier copy ... .` would render the latest
-# release tag instead, so every gate below it would report on the last release
-# rather than on your change. Copying copier.yml and template/ into a plain
-# directory makes Copier read the files in front of you; use
-# `--vcs-ref HEAD . /tmp/rka-render` once the work is committed.
-#
-# The render directory is cleared too, not just the source. Copier reads an
-# existing one as an update and exits 1 on the first conflict without writing
-# anything, which leaves the gates below reading the previous render.
-rm -rf /tmp/rka-src /tmp/rka-render
-mkdir /tmp/rka-src && cp -a copier.yml template /tmp/rka-src/
-copier copy --defaults --trust /tmp/rka-src /tmp/rka-render
-
-# the render's own seed knowledge, checked by the render's own validator
-(cd /tmp/rka-render && bash scripts/validate-frontmatter.sh knowledge)
-
-# this repository's knowledge, checked by the SHIPPED validator from the render
-bash /tmp/rka-render/scripts/validate-frontmatter.sh knowledge
-
-bats /tmp/rka-render/tests/validate-frontmatter.bats   # shipped test suite
+bash dev/gates.sh
 ```
+
+That runs the generation suite, renders the working tree, checks the render's seed `knowledge/` with the render's own validator, checks this repository's `knowledge/` with the *shipped* validator, runs the shipped BATS suite, and rejects em dashes.
+CI calls the same script, so the two cannot drift.
+Named gates run individually (`bash dev/gates.sh pytest render`), `--ref <ref>` renders a committed ref rather than the working tree, and `--strict` makes a gate that could not run a failure rather than a warning.
 
 Always verify against a rendered project rather than the template source: the render is the step that would silently eat a Jinja construct in a shipped script.
 

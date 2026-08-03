@@ -2,7 +2,7 @@
 id: activeContext
 title: Active Context
 status: active
-version: 0.1.4
+version: 0.1.5
 date: 2026-08-03
 type: context
 ---
@@ -24,20 +24,18 @@ The seed documents were promoted to `canonical` by the owner on 2026-08-03; the 
 - **Whether the pin-to-tags rule ever becomes mechanical here.**
   ADR-0001 records it as advice, on the reasoning that a gate is a tooling concern.
   Revisit only if adopters are observed drifting off tags in practice.
+  ADR-0005 does not reopen it: `dev/gates.sh` gates this repository's own development and ships to nobody, whereas the pin-to-tags check would have run in a consumer's repository.
 
-- **Whether the gate procedure should stop being prose.**
-  Open, and the owner's to decide.
-  The render command is currently written out at six sites across `AGENTS.md`, `README.md` and `ci.yml`, and `tests/test_gate_invocations.py` exists to check that all six stay correct by parsing them out of the surrounding markdown.
-  Three rounds of adversarial review found twelve holes in that parser, none of them triggered by the documents as they stand, and the last round was still finding them.
-  A guard over prose fails silently by construction, so each hole reads exactly like a document with no defect.
-  The alternative is to hold the commands once in an executable the docs point at, which deletes the duplication the parser exists to police rather than policing it better.
-  The cost is that this repository would then carry a script of its own, which is the shape ADR-0001 kept out of `template/`; the counter is that a root-level developer script ships to nobody.
+## Adopters
+
+None, as of 2026-08-03, verified four ways: no repository carries an `_src_path` pointing at this template, a search for the answers filename returns nothing, and the remote has no forks and no stars.
+The search reaches private repositories in this owner's account, so it is not limited to public ones, but it cannot see a third party's private repository - "none found" is still not "none exists".
+This matters because `v0.1.0` shipped the contested answers filename, so the rename in ADR-0004 is a breaking change with no known victim rather than a free one.
 
 ## Next steps (to-do)
 
-- Decide the question above before adding any further render site, since every new one widens what the parser has to cover.
-
-The next work here is otherwise reactive: an adopter's report, or a change to the RKA standard that moves the shipped schema.
+None open.
+The next work here is reactive: an adopter's report, or a change to the RKA standard that moves the shipped schema.
 
 `v0.1.0` is now behind the working tree in a way that matters to adopters: it ships the contested answers filename and the flagless update command.
 Cutting the next tag is what makes ADR-0004 reach anyone, and until then the README on the default branch documents behaviour that the released tag does not have.

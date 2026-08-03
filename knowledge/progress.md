@@ -2,7 +2,7 @@
 id: progress
 title: Progress
 status: active
-version: 0.1.3
+version: 0.1.4
 date: 2026-08-03
 type: context
 ---
@@ -32,8 +32,13 @@ The state of completion for the template repository.
   A bare `copier copy ... .` resolves Copier's default ref, which is the latest tag, so it rendered `v0.1.0` on any full clone.
   A repeated render into `/tmp/rka-render` conflicts on the first changed file and exits 1 without writing, leaving the validator and BATS rows - separate commands - examining the previous render; both documented render commands now clear the destination first.
   `tests/test_gate_invocations.py` holds both properties over `AGENTS.md`, `README.md` and the workflow, and was written failing against all six invocations before either was fixed.
-  An adversarial review of that guard then found four holes in it - a clean counted wherever it appeared rather than before the render, `/tmp` itself and `/var/tmp` fell outside the check by spelling, an indented fence was scored by its line, and a `&&`-chained command was parsed as copier's own argv - so the guard now carries unit tests over its own extraction, on inputs the documents do not contain.
-  That last part is the point: a guard over prose fails silently by construction, because a hole in it reads exactly like a document with no defect.
+  Two further rounds of review then found twelve holes in that guard and none in the documents, which is what settled the mechanism rather than the bugs: parsing prose to validate shell commands has no completion point, and every hole is silent.
+  So the duplication was removed instead of policed.
+  `dev/gates.sh` holds the commands once, CI calls it rather than restating them, and `AGENTS.md` and `README.md` point at it (ADR-0005).
+  The guard is now a few checks that the arrangement holds - the script exists, no prose restates a render, every workflow calls the script, the script pins a ref or uses the plain copy and clears its destination - rather than a parser.
+
+- A gate that could not run is reported by the tool rather than by whoever remembers.
+  `dev/gates.sh` names any skipped gate and says that a gate which could not run is not a gate that passed; `--strict` makes it fatal, which is what CI uses so a runner image dropping `bats` fails loudly instead of quietly ceasing to test.
 
 ## What's left
 
