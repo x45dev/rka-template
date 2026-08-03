@@ -36,11 +36,11 @@ Run these locally before you consider a change done.
 | Gate | Command |
 | --- | --- |
 | generation invariants | `python3 -m pytest tests/ -q` |
-| render (working tree) | `rm -rf /tmp/rka-src && mkdir /tmp/rka-src && cp -a copier.yml template /tmp/rka-src/ && copier copy --defaults --trust /tmp/rka-src /tmp/rka-render` |
-| render (a committed ref) | `copier copy --defaults --trust --vcs-ref HEAD . /tmp/rka-render` |
+| render (working tree) | `rm -rf /tmp/rka-src /tmp/rka-render && mkdir /tmp/rka-src && cp -a copier.yml template /tmp/rka-src/ && copier copy --defaults --trust /tmp/rka-src /tmp/rka-render` |
+| render (a committed ref) | `rm -rf /tmp/rka-render && copier copy --defaults --trust --vcs-ref HEAD . /tmp/rka-render` |
 | shipped validator, over the render | `(cd /tmp/rka-render && bash scripts/validate-frontmatter.sh knowledge)` |
 | self-governance | `bash /tmp/rka-render/scripts/validate-frontmatter.sh knowledge` from this repo's root |
-| shipped BATS suite | `bats /tmp/rka-render/tests/validate-frontmatter.bats` |
+| shipped BATS suite | `bats /tmp/rka-render/tests/validate-frontmatter.bats` (see the prerequisites table in `README.md` if `bats` is absent) |
 | em dash | `grep -rPn '\x{2014}' --include='*.md' .` must find nothing |
 
 Always verify against a `copier copy`-rendered project, never the template source: the render is the step that would silently eat a `{#`.
@@ -49,3 +49,11 @@ Always verify against a `copier copy`-rendered project, never the template sourc
 Copier's default ref for a git template is its latest *tag*, so that command renders the last release and every gate below it then reports on code you did not write.
 This repository is tagged, so the trap is live on any full clone.
 Render from the plain copy while you are working - it is the only form that sees uncommitted edits, and it is what `tests/conftest.py` does - and pin `--vcs-ref HEAD` once the work is committed.
+
+**Clear the render directory before every render**, which is why both rows above open with `rm -rf`.
+Copier reads an existing `/tmp/rka-render` as an update, conflicts on the first file that differs, and in a non-interactive shell exits 1 having written nothing.
+The three rows beneath it are separate commands, so they then examine the render from last time and pass - the same trap as the bare `.` render, reached by a different route.
+`tests/test_gate_invocations.py` holds both properties over these rows, because a gate procedure delivered as prose has no other gate.
+
+**A gate you could not run is not a gate that passed.**
+`bats` in particular is absent from many machines and is not a pip package; where a tool is missing, say which gate did not run rather than reporting the rest as green.

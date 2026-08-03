@@ -81,7 +81,11 @@ jobs:
         # fetch-depth: 0 for any unrelated reason would silently turn every gate
         # below into a re-test of the last release. Pin the ref instead of relying
         # on that.
-        run: copier copy --defaults --trust --vcs-ref HEAD . /tmp/rka-render
+        #
+        # The rm is redundant on a fresh runner and kept anyway: it makes the
+        # step self-contained rather than dependent on the runner's state, and
+        # it is the same command the local gates document.
+        run: rm -rf /tmp/rka-render && copier copy --defaults --trust --vcs-ref HEAD . /tmp/rka-render
       - name: Run the shipped validator against the render's own knowledge/
         working-directory: /tmp/rka-render
         run: bash scripts/validate-frontmatter.sh knowledge
@@ -107,7 +111,11 @@ jobs:
         # fetch-depth: 0 for any unrelated reason would silently turn every gate
         # below into a re-test of the last release. Pin the ref instead of relying
         # on that.
-        run: copier copy --defaults --trust --vcs-ref HEAD . /tmp/rka-render
+        #
+        # The rm is redundant on a fresh runner and kept anyway: it makes the
+        # step self-contained rather than dependent on the runner's state, and
+        # it is the same command the local gates document.
+        run: rm -rf /tmp/rka-render && copier copy --defaults --trust --vcs-ref HEAD . /tmp/rka-render
       # The SHIPPED validator, not a copy of it: a schema change that breaks this
       # repository's own knowledge/ must fail here rather than in a consumer's gate.
       - name: Validate this repository's own knowledge/

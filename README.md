@@ -40,7 +40,7 @@ The validator is deliberately dependency-light, and the template assumes you alr
 
 Adopting into a repository that already has content is a diff-and-copy, not a blind overwrite.
 
-1. Render into a scratch directory: `copier copy --vcs-ref <tag> gh:x45dev/rka-template /tmp/rka-render`.
+1. Render into a scratch directory: `rm -rf /tmp/rka-render && copier copy --vcs-ref <tag> gh:x45dev/rka-template /tmp/rka-render`.
 2. Diff it against your repository. The render is fourteen files and every one of them can collide:
 
    | Path | Collides with |
@@ -112,7 +112,12 @@ python3 -m pytest tests/ -q                        # generation invariants
 # rather than on your change. Copying copier.yml and template/ into a plain
 # directory makes Copier read the files in front of you; use
 # `--vcs-ref HEAD . /tmp/rka-render` once the work is committed.
-rm -rf /tmp/rka-src && mkdir /tmp/rka-src && cp -a copier.yml template /tmp/rka-src/
+#
+# The render directory is cleared too, not just the source. Copier reads an
+# existing one as an update and exits 1 on the first conflict without writing
+# anything, which leaves the gates below reading the previous render.
+rm -rf /tmp/rka-src /tmp/rka-render
+mkdir /tmp/rka-src && cp -a copier.yml template /tmp/rka-src/
 copier copy --defaults --trust /tmp/rka-src /tmp/rka-render
 
 # the render's own seed knowledge, checked by the render's own validator
