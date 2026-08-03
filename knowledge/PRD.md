@@ -2,8 +2,8 @@
 id: PRD
 title: Product Requirements Document
 status: canonical
-version: 0.1.0
-date: 2026-07-31
+version: 0.2.0
+date: 2026-08-03
 type: prd
 ---
 
@@ -27,12 +27,13 @@ It delivers the Repository Knowledge Architecture governance layer into a new or
 
 ### Functional
 
-- **FR1** A default render emits exactly: `knowledge/` (constitution, context, PRD, activeContext, progress, and a seed ADR), `scripts/validate-frontmatter.sh`, `tests/validate-frontmatter.bats`, `AGENTS.md`, `README.md`, `.gitignore`, `.copier-answers.yml`, and `LICENSE` unless the license answer is Proprietary.
+- **FR1** A default render emits exactly: `knowledge/` (constitution, context, PRD, activeContext, progress, and a seed ADR), `scripts/validate-frontmatter.sh`, `tests/validate-frontmatter.bats`, `AGENTS.md`, `README.md`, `.gitignore`, `.gitattributes`, `.copier-answers.rka-template.yml`, and `LICENSE` unless the license answer is Proprietary.
 - **FR2** Six questions are asked: project name, project slug, description, author name, license, and copyright year.
 - **FR3** A `project_name` that sanitizes to an empty slug fails generation rather than emitting an illegal directory name.
 - **FR4** The shipped validator enforces the RKA frontmatter schema, the id and filename conventions, the constitution's presence, the optional bundle index, and the spec-bundle lifecycle rules.
 - **FR5** `AGENTS.md` carries no frontmatter and is not a governed document.
-- **FR6** A generated project carries a committed `.copier-answers.yml`, so `copier update` can re-apply later template evolution.
+- **FR6** A generated project carries a committed answers file, so `copier update` can re-apply later template evolution.
+- **FR7** Adoption into a repository that another Copier template already generated leaves that repository's `.copier-answers.yml` untouched; this template records its answers under a distinct name (ADR-0004).
 
 ### Non-functional
 

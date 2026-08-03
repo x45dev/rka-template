@@ -26,6 +26,11 @@ The state of completion for the template repository.
   The transition carries no `version` or `date` bump on the promoted documents, per RKA RFC-003 section 3: a lifecycle transition alone is not a substantive edit.
   `activeContext.md` and `progress.md` stay `active`, because working state is never authoritative.
 
+- Adoption into an already-Copier-generated repository is safe and is held by a test.
+  The template records answers under `.copier-answers.rka-template.yml` rather than Copier's contested default (ADR-0004), so a repository generated from another template keeps its own link.
+- The gates render the code under test rather than the last release.
+  A bare `copier copy ... .` resolves Copier's default ref, which is the latest tag, so it rendered `v0.1.0` on any full clone; `tests/test_gate_invocations.py` now fails any documented invocation of this repository that does not pin `--vcs-ref`.
+
 ## What's left
 
 Nothing planned.
@@ -37,4 +42,8 @@ Nothing planned.
 - There is no `copier update` path from the predecessor unified template.
   A project generated from it adopts this template copy-fresh, with a manual reconcile.
 - `README.md`, `AGENTS.md`, and `.gitignore` are consumer-owned after the first copy, so a later template change to any of them surfaces as a three-way merge conflict.
+- Every update against this template needs `-a .copier-answers.rka-template.yml`, and omitting the flag updates a different template rather than failing (ADR-0004).
+  Nothing mechanical can catch that from here; it is stated in the shipped `README.md` and in `_message_after_copy`, which is all a template can do about a command run in someone else's repository.
+- The shipped validator confirms that `knowledge/` holds valid RKA documents, not that they are *this* repository's documents.
+  A `knowledge/` overwritten with the template's seed stubs passes it with exit 0, which is why `README.md` makes brownfield adoption a diff rather than a copy.
 - CI exercises one bash, awk, jq and bats each - whatever `ubuntu-latest` ships - so the validator's portability claim rests on its dependency list rather than on a matrix. The yq matrix exists because that dependency is the one the validator branches on at runtime; the others it merely calls.

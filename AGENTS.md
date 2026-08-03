@@ -36,10 +36,16 @@ Run these locally before you consider a change done.
 | Gate | Command |
 | --- | --- |
 | generation invariants | `python3 -m pytest tests/ -q` |
-| render | `copier copy --defaults . /tmp/rka-render --trust` |
+| render (working tree) | `rm -rf /tmp/rka-src && mkdir /tmp/rka-src && cp -a copier.yml template /tmp/rka-src/ && copier copy --defaults --trust /tmp/rka-src /tmp/rka-render` |
+| render (a committed ref) | `copier copy --defaults --trust --vcs-ref HEAD . /tmp/rka-render` |
 | shipped validator, over the render | `(cd /tmp/rka-render && bash scripts/validate-frontmatter.sh knowledge)` |
 | self-governance | `bash /tmp/rka-render/scripts/validate-frontmatter.sh knowledge` from this repo's root |
 | shipped BATS suite | `bats /tmp/rka-render/tests/validate-frontmatter.bats` |
 | em dash | `grep -rPn '\x{2014}' --include='*.md' .` must find nothing |
 
 Always verify against a `copier copy`-rendered project, never the template source: the render is the step that would silently eat a `{#`.
+
+**Never render with a bare `copier copy ... .`.**
+Copier's default ref for a git template is its latest *tag*, so that command renders the last release and every gate below it then reports on code you did not write.
+This repository is tagged, so the trap is live on any full clone.
+Render from the plain copy while you are working - it is the only form that sees uncommitted edits, and it is what `tests/conftest.py` does - and pin `--vcs-ref HEAD` once the work is committed.

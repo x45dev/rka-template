@@ -13,6 +13,16 @@ copier copy gh:x45dev/rka-template .
 Run it in a fresh directory for a new project, or at the root of an existing repository to adopt RKA into it.
 The template installs no task runner, no lint config, and no CI: wiring the validator into the gate you already have is the adopter's call.
 
+The answers file is `.copier-answers.rka-template.yml`, not Copier's default `.copier-answers.yml`, so adopting this template into a repository that another Copier template already generated leaves that repository's own answers file untouched.
+The cost is that `copier update` has to be told the name, because it reads the answers file before it can read the template and so cannot discover it:
+
+```bash
+copier update -a .copier-answers.rka-template.yml --vcs-ref v1.2.3
+```
+
+**Omitting `-a` in a repository that carries another template's answers file does not fail.**
+Copier falls back to `.copier-answers.yml`, finds the other template's `_src_path`, and updates that template instead.
+
 ## Prerequisites
 
 The validator is deliberately dependency-light, and the template assumes you already have a toolchain of your own.
@@ -31,8 +41,28 @@ The validator is deliberately dependency-light, and the template assumes you alr
 Adopting into a repository that already has content is a diff-and-copy, not a blind overwrite.
 
 1. Render into a scratch directory: `copier copy --vcs-ref <tag> gh:x45dev/rka-template /tmp/rka-render`.
-2. Diff it against your repository and reconcile by hand where the two overlap - most commonly `README.md`, `AGENTS.md`, and `.gitignore`, which are yours after the first copy.
-3. Copy across what is genuinely new (`knowledge/`, `scripts/validate-frontmatter.sh`, `tests/validate-frontmatter.bats`) plus the `.copier-answers.yml` the render produced, then wire `bash scripts/validate-frontmatter.sh knowledge` into your existing pre-commit or CI gate.
+2. Diff it against your repository. The render is fourteen files and every one of them can collide:
+
+   | Path | Collides with |
+   | --- | --- |
+   | `knowledge/` (`constitution.md`, `context.md`, `PRD.md`, `activeContext.md`, `progress.md`, `adr/ADR-0001-adopt-rka.md`) | any repository that already practises RKA - including every project generated from the predecessor unified template |
+   | `scripts/validate-frontmatter.sh`, `tests/validate-frontmatter.bats` | likewise; the predecessor shipped both |
+   | `README.md`, `AGENTS.md`, `.gitignore`, `.gitattributes`, `LICENSE` | almost any repository |
+   | `.copier-answers.rka-template.yml` | only another install of *this* template |
+
+3. Reconcile by hand, then wire `bash scripts/validate-frontmatter.sh knowledge` into your existing pre-commit or CI gate.
+
+Two traps, both worth reading before you start.
+
+**`copier copy` at your repository root is for a repository that does not already practise RKA.**
+Where the paths above collide, Copier stops at the first conflict and writes nothing, then suggests `--overwrite` - which resolves every conflict by discarding your version.
+On a repository that already has a governed `knowledge/`, that replaces your constitution, context, PRD and working state with the seed stubs.
+The one exception to the stop-and-ask behaviour is the answers file, which Copier always writes without asking; the distinct filename above is what keeps that from taking another template's answers file with it.
+
+**The shipped validator cannot tell you this happened.**
+It checks frontmatter, ids, and the lifecycle rules - all of which the seed stubs satisfy, because they are valid RKA documents.
+A `knowledge/` overwritten with stubs passes `validate-frontmatter.sh` with exit 0.
+`git diff` is the check that catches it, which is why step 2 is a diff and not a copy.
 
 ## Consuming this template
 
@@ -44,7 +74,7 @@ It shares no history with that predecessor and there is no `copier update` path 
 Update against tags only, so what arrives is a reviewed batch rather than whatever the default branch happens to be:
 
 ```bash
-copier update --vcs-ref v1.2.3
+copier update -a .copier-answers.rka-template.yml --vcs-ref v1.2.3
 ```
 
 The rule is advice here rather than a shipped gate.
@@ -60,7 +90,14 @@ This repository governs itself with the standard it ships: its own `knowledge/` 
 
 ```bash
 python3 -m pytest tests/ -q                        # generation invariants
-copier copy --defaults . /tmp/rka-render --trust   # render the template
+
+# Render the WORKING TREE. A bare `copier copy ... .` would render the latest
+# release tag instead, so every gate below it would report on the last release
+# rather than on your change. Copying copier.yml and template/ into a plain
+# directory makes Copier read the files in front of you; use
+# `--vcs-ref HEAD . /tmp/rka-render` once the work is committed.
+rm -rf /tmp/rka-src && mkdir /tmp/rka-src && cp -a copier.yml template /tmp/rka-src/
+copier copy --defaults --trust /tmp/rka-src /tmp/rka-render
 
 # the render's own seed knowledge, checked by the render's own validator
 (cd /tmp/rka-render && bash scripts/validate-frontmatter.sh knowledge)

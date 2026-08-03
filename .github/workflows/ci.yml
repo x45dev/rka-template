@@ -74,7 +74,14 @@ jobs:
             exit 1
           fi
       - name: Render the template
-        run: copier copy --defaults --trust . /tmp/rka-render
+        # --vcs-ref HEAD is load-bearing. Copier's default ref for a git template
+        # is its latest TAG, so the bare command renders the last release rather
+        # than the commit under test. It only renders HEAD here because
+        # actions/checkout does not fetch tags by default - setting fetch-tags or
+        # fetch-depth: 0 for any unrelated reason would silently turn every gate
+        # below into a re-test of the last release. Pin the ref instead of relying
+        # on that.
+        run: copier copy --defaults --trust --vcs-ref HEAD . /tmp/rka-render
       - name: Run the shipped validator against the render's own knowledge/
         working-directory: /tmp/rka-render
         run: bash scripts/validate-frontmatter.sh knowledge
@@ -93,7 +100,14 @@ jobs:
       - name: Install copier
         run: python -m pip install --upgrade pip copier
       - name: Render the template
-        run: copier copy --defaults --trust . /tmp/rka-render
+        # --vcs-ref HEAD is load-bearing. Copier's default ref for a git template
+        # is its latest TAG, so the bare command renders the last release rather
+        # than the commit under test. It only renders HEAD here because
+        # actions/checkout does not fetch tags by default - setting fetch-tags or
+        # fetch-depth: 0 for any unrelated reason would silently turn every gate
+        # below into a re-test of the last release. Pin the ref instead of relying
+        # on that.
+        run: copier copy --defaults --trust --vcs-ref HEAD . /tmp/rka-render
       # The SHIPPED validator, not a copy of it: a schema change that breaks this
       # repository's own knowledge/ must fail here rather than in a consumer's gate.
       - name: Validate this repository's own knowledge/

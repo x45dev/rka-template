@@ -27,10 +27,15 @@ _TEXT_SUFFIXES = {
     ".txt", ".bats", "",
 }
 
+# Not `.copier-answers.yml`: this template claims a distinct answers file so that
+# adopting it into an already-Copier-generated repository does not collide with
+# that repository's own (ADR-0004).
+ANSWERS_FILE = ".copier-answers.rka-template.yml"
+
 # The complete governance render, MIT arm. Anything outside this set is a leak
 # from a layer this template deliberately does not carry.
 EXPECTED_FILES = {
-    ".copier-answers.yml",
+    ANSWERS_FILE,
     ".gitattributes",
     ".gitignore",
     "AGENTS.md",
@@ -66,7 +71,7 @@ def _rel_files(root: Path) -> set[str]:
 
 
 def _answers(project: Path) -> dict:
-    return yaml.safe_load((project / ".copier-answers.yml").read_text())
+    return yaml.safe_load((project / ANSWERS_FILE).read_text())
 
 
 def _run_shipped_validator(project: Path) -> subprocess.CompletedProcess:
@@ -153,6 +158,45 @@ def test_render_is_the_governance_layer_and_nothing_else(project: Path) -> None:
     CI workflow, an app skeleton), which no positive assertion would notice.
     """
     assert _rel_files(project) == EXPECTED_FILES
+
+
+def test_adoption_does_not_clobber_an_existing_answers_file(
+    plain_template: Path, copier_cmd: list[str], tmp_path: Path
+) -> None:
+    """Adopting into an already-Copier-generated repository must leave that
+    repository's own answers file alone.
+
+    Copier's default answers file is `.copier-answers.yml` for every template, so
+    a shared name forces the adopter to choose between keeping the link to their
+    original template and having a working `copier update` for this one - and this
+    template's whole purpose is adoption into a repository that already exists,
+    with a project moving off the predecessor unified template as the named case.
+    Hence the distinct `_answers_file` (ADR-0004), asserted here rather than
+    inferred from `EXPECTED_FILES`: that set is checked against a render into an
+    EMPTY directory, where a collision cannot occur and so cannot be observed.
+    """
+    foreign = tmp_path / ".copier-answers.yml"
+    original = (
+        "# This file is managed by Copier for a DIFFERENT template.\n"
+        "_commit: v9.9.9\n"
+        "_src_path: https://example.invalid/other-template.git\n"
+    )
+    foreign.write_text(original)
+
+    proc = subprocess.run(
+        [
+            *copier_cmd, "copy", "--defaults", "--quiet",
+            "--data", "project_name=Test Project",
+            str(plain_template), str(tmp_path),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert proc.returncode == 0, f"adoption into a Copier-managed repo failed:\n{proc.stderr}"
+    assert foreign.read_text() == original, "the adopter's own answers file was modified"
+    assert (tmp_path / ANSWERS_FILE).is_file(), "this template's answers file was not written"
 
 
 def test_agents_md_carries_no_frontmatter(project: Path) -> None:

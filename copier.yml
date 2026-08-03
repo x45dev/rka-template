@@ -57,6 +57,21 @@ copyright_year:
 # Adopters on an older copier get a clean version error instead of a confusing failure.
 _min_copier_version: "9.4.0"
 
+# This template is designed to be applied to an EXISTING repository, and the
+# repositories most likely to adopt it are already Copier-generated - a project
+# moving off the predecessor unified template is the named case in README.md.
+# Copier's default answers file is `.copier-answers.yml` for every template, so
+# two templates in one repository collide on it, and the collision has no correct
+# resolution: accept the write and the repository loses the link to its original
+# template, decline it and `copier update` never works for this one. Claiming a
+# distinct filename is the documented Copier convention for the multi-template
+# case and the only resolution that leaves both links intact.
+# The cost is real and is documented in README.md: `copier update` locates the
+# answers file before it can read the template, so it cannot discover this name
+# on its own and every update here needs `-a .copier-answers.rka-template.yml`.
+# See knowledge/adr/ADR-0004-claim-a-distinct-answers-file.md.
+_answers_file: .copier-answers.rka-template.yml
+
 # The rendered content lives under template/; everything else in this repo
 # (this file, README, the repo's own knowledge/) is not generated.
 _subdirectory: template
@@ -79,3 +94,10 @@ _message_after_copy: |
     with bats:
 
       bats tests/validate-frontmatter.bats
+
+    Answers were recorded in .copier-answers.rka-template.yml, not Copier's
+    default name, so this template can sit beside another one. Updates must
+    name it, and omitting the flag updates a DIFFERENT template rather than
+    failing:
+
+      copier update -a .copier-answers.rka-template.yml --vcs-ref <tag>
