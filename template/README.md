@@ -82,15 +82,26 @@ Keep working-state out of the README and the PRD - they are durable documents.
 ## Updating from the template
 
 This repo was generated from the RKA governance template and carries a committed
-`.copier-answers.yml`. Pull later template evolution in with:
+`.copier-answers.rka-template.yml`. That is deliberately not Copier's default
+`.copier-answers.yml`: the template is designed to be applied to a repository
+that may already have been generated from another one, and a shared filename
+would overwrite that repository's link to its own template.
+
+The consequence lands on every update, so it is worth reading once. `copier
+update` reads the answers file before it can read the template, so it cannot
+discover the name on its own and has to be told:
 
 ```bash
-copier update           # re-applies template changes via a three-way merge
+copier update -a .copier-answers.rka-template.yml
 ```
+
+**Leaving out `-a` does not fail.** Copier falls back to `.copier-answers.yml`;
+if this repository has one from another template, it updates *that* template
+instead.
 
 Update against release tags only, so what arrives is a reviewed batch rather
 than whatever the template's default branch happens to be:
 
 ```bash
-copier update --vcs-ref v1.2.3
+copier update -a .copier-answers.rka-template.yml --vcs-ref v1.2.3
 ```

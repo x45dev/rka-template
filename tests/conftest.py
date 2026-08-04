@@ -25,6 +25,13 @@ def _copier_cmd() -> list[str]:
 
 
 @pytest.fixture(scope="session")
+def copier_cmd() -> list[str]:
+    """The resolved copier invocation, for tests that drive their own output dir
+    rather than taking one from the `generate` factory."""
+    return _copier_cmd()
+
+
+@pytest.fixture(scope="session")
 def plain_template(tmp_path_factory: pytest.TempPathFactory) -> Path:
     """A plain (non-git) copy of the template.
 

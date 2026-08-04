@@ -1,5 +1,10 @@
 name: CI
 
+# Every job below calls dev/gates.sh rather than spelling out the commands.
+# That is the point of the script: CI and the documented local procedure are
+# the same code, so they cannot drift. A command written out here again would
+# reintroduce exactly the duplication ADR-0005 removed.
+
 on:
   push:
     branches: [main]
@@ -21,12 +26,18 @@ jobs:
       - name: Install the test dependencies
         run: python -m pip install --upgrade pip copier pytest pyyaml
       - name: Run the generation suite
-        run: python -m pytest tests/ -q
+        run: bash dev/gates.sh pytest
 
   render-and-validate:
-    name: Render, then run the shipped gates against the render
+    # The validator picks a yq transcode form at runtime from a capability probe,
+    # so it has two execution paths and a single-flavour job only ever proves one.
+    name: Render, then run the shipped gates against the render (${{ matrix.yq_flavor }} yq)
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        yq_flavor: [mikefarah, kislyuk]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -37,18 +48,46 @@ jobs:
       # jq and the mikefarah yq both ship on the ubuntu-latest image; bats does not.
       - name: Install bats
         run: sudo apt-get update && sudo apt-get install -y bats
+      # Remove the preinstalled Go yq rather than shadowing it on PATH, so the
+      # assertion below cannot pass by accident on a PATH-ordering quirk.
+      - name: Install the kislyuk (Python) yq in place of the preinstalled Go one
+        if: matrix.yq_flavor == 'kislyuk'
+        run: |
+          preinstalled="$(command -v yq || true)"
+          if [ -n "$preinstalled" ]; then sudo rm -f "$preinstalled"; fi
+          python -m pip install yq
       - name: Record the tool versions behind this job's claims
         run: |
           yq --version
           jq --version
           bats --version
-      - name: Render the template
-        run: copier copy --defaults --trust . /tmp/rka-render
-      - name: Run the shipped validator against the render's own knowledge/
-        working-directory: /tmp/rka-render
-        run: bash scripts/validate-frontmatter.sh knowledge
-      - name: Run the shipped BATS suite
-        run: bats /tmp/rka-render/tests/validate-frontmatter.bats
+      # Assert the branch this leg exists to exercise is the branch that will run.
+      # Without this the kislyuk leg silently degrades into a second Go-yq run the
+      # day an image change or a PATH order puts the wrong binary in front.
+      - name: Assert the capability probe selects this leg's yq branch
+        run: |
+          if printf 'probe: 1\n' | yq -o=json '.' > /dev/null 2>&1; then
+            selected=mikefarah
+          elif printf 'probe: 1\n' | yq '.' > /dev/null 2>&1; then
+            selected=kislyuk
+          else
+            selected=none
+          fi
+          echo "capability probe selected: $selected"
+          if [ "$selected" != "${{ matrix.yq_flavor }}" ]; then
+            echo "::error::expected the ${{ matrix.yq_flavor }} branch, probe selected $selected" >&2
+            exit 1
+          fi
+      # --ref HEAD renders the commit under test. Copier's default ref for a git
+      # template is its latest TAG, so an unpinned render would re-test the last
+      # release; it resolves to HEAD here only because actions/checkout does not
+      # fetch tags, which is an accident to pin rather than rely on.
+      #
+      # --strict makes a gate that could not run a failure. bats is installed
+      # above, so this is what catches the image dropping it rather than the
+      # suite silently ceasing to run.
+      - name: Render and run the shipped gates against it
+        run: bash dev/gates.sh --strict --ref HEAD render validate-render bats
 
   self-governance:
     name: This repository obeys the standard it ships
@@ -61,15 +100,8 @@ jobs:
           python-version: "3.12"
       - name: Install copier
         run: python -m pip install --upgrade pip copier
-      - name: Render the template
-        run: copier copy --defaults --trust . /tmp/rka-render
-      # The SHIPPED validator, not a copy of it: a schema change that breaks this
-      # repository's own knowledge/ must fail here rather than in a consumer's gate.
-      - name: Validate this repository's own knowledge/
-        run: bash /tmp/rka-render/scripts/validate-frontmatter.sh knowledge
-      - name: Reject em dashes in markdown
-        run: |
-          if grep -rPn '\x{2014}' --include='*.md' .; then
-            echo "::error::em dash (U+2014) found; use a plain dash instead" >&2
-            exit 1
-          fi
+      # validate-self runs the SHIPPED validator over this repository's own
+      # knowledge/, not a copy of it, so a change to the shipped schema has to
+      # migrate these documents in the same change.
+      - name: Validate this repository with the validator it ships
+        run: bash dev/gates.sh --strict --ref HEAD render validate-self em-dash

@@ -2,8 +2,8 @@
 id: activeContext
 title: Active Context
 status: active
-version: 0.1.1
-date: 2026-07-31
+version: 0.1.5
+date: 2026-08-03
 type: context
 ---
 
@@ -14,21 +14,35 @@ Working state lives here, never in the README or the PRD.
 
 ## Current focus
 
-The template has just been extracted from its predecessor and committed as a fresh repository with no history and no remote.
-The generation suite, a rendered project's own gates, and self-governance all pass locally.
+The template is published at `github.com/x45dev/rka-template` and `v0.1.0` is tagged on the remote, so adopters have something to pin to.
+CI is green on that commit, and the generation suite, a rendered project's own gates, and self-governance all pass locally.
+Everything the extraction set out to do is done; what completed is recorded in `progress.md`, which is where this repository's output belongs.
+The seed documents were promoted to `canonical` by the owner on 2026-08-03; the evidence and what the promotion covers are in `progress.md`.
 
 ## Decisions in flight
 
-- **The public repository identity is not settled.**
-  The local working name is `rka-template-governance`; the README and `copier.yml` documentation both assume the published identity will be `gh:x45dev/rka-template`, on the expectation that the name is handed over from the predecessor.
-  If that handover does not happen, the usage line in `README.md` is the one place that has to change.
 - **Whether the pin-to-tags rule ever becomes mechanical here.**
   ADR-0001 records it as advice, on the reasoning that a gate is a tooling concern.
   Revisit only if adopters are observed drifting off tags in practice.
+  ADR-0005 does not reopen it: `dev/gates.sh` gates this repository's own development and ships to nobody, whereas the pin-to-tags check would have run in a consumer's repository.
+
+## Adopters
+
+None, as of 2026-08-03, verified four ways: no repository carries an `_src_path` pointing at this template, a search for the answers filename returns nothing, and the remote has no forks and no stars.
+The search reaches private repositories in this owner's account, so it is not limited to public ones, but it cannot see a third party's private repository - "none found" is still not "none exists".
+This matters because `v0.1.0` shipped the contested answers filename, so the rename in ADR-0004 is a breaking change with no known victim rather than a free one.
 
 ## Next steps (to-do)
 
-- [ ] Decide the published repository name and reconcile the usage line in `README.md` with it.
-- [ ] Create the remote, push, and cut the first release tag so adopters have something to pin to.
-- [x] Verify the shipped validator against the Python yq flavour as well as the Go one. An adversarial review exercised it under kislyuk yq 4.1.2: the capability probe correctly rejected `-o=json`, execution fell to the bare-yq branch, and the validator exited 0 over this repository's own `knowledge/`.
-- [ ] Write the consumer-facing migration note for projects moving off the predecessor unified template.
+None open.
+The next work here is reactive: an adopter's report, or a change to the RKA standard that moves the shipped schema.
+
+`v0.1.0` is now behind the working tree in a way that matters to adopters: it ships the contested answers filename and the flagless update command.
+Cutting the next tag is what makes ADR-0004 reach anyone, and until then the README on the default branch documents behaviour that the released tag does not have.
+That tag carries a breaking change for `v0.1.0` adopters - the answers filename - so its release notes should lead with the one-line `git mv` migration in `README.md` rather than bury it in a file list.
+
+## Naming the predecessor
+
+The predecessor unified template is a private repository.
+This one is public, so its documents describe the predecessor by role and never by name: naming it would publish the existence and identity of a private repository to anyone reading the template.
+That constraint is why every reference here and in `README.md` reads "the predecessor unified template", and it is a constraint rather than a stylistic habit.

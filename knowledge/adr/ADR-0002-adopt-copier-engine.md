@@ -1,7 +1,7 @@
 ---
 id: ADR-0002
 title: Adopt Copier as the templating engine
-status: draft
+status: canonical
 version: 0.1.0
 date: 2026-07-31
 adr_status: accepted
