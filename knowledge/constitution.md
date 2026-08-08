@@ -2,8 +2,8 @@
 id: constitution
 title: Constitution
 status: canonical
-version: 0.1.0
-date: 2026-07-31
+version: 0.2.0
+date: 2026-08-08
 type: constitution
 ---
 
@@ -16,6 +16,14 @@ type: constitution
 This repository is a Copier template that delivers the Repository Knowledge Architecture governance layer, and nothing else, to a new or existing repository.
 It exists so that a project can adopt RKA without also adopting somebody else's toolchain.
 The predecessor template bundled governance with a task runner, a lint preset, and an application scaffold; adopting the standard meant taking all three or hand-extracting the part you wanted.
+
+RKA is a **profile of Google Cloud's Open Knowledge Format v0.2**, not a rival to it (ADR-0006).
+OKF supplies the baseline - a directory of markdown files with YAML frontmatter, `type` as the one required field, `index.md` and `log.md` reserved for bundle structure, permissive conformance.
+The profile adds what OKF's non-goals deliberately exclude: document identity, versioning, the ADR and spec-bundle shapes, the mandatory constitution, and the human-gated promotion discipline.
+What this template distributes is therefore nameable in one line, and a consumer can take the baseline from the published specification and this template for the profile.
+
+The sibling `github.com/x45dev/workspace-template` distributes a *workspace* - the same knowledge layer plus a `.config/` tooling preset and an optional FastAPI + Astro application scaffold - and offers the profile as a toggle rather than as its product (ADR-0001, and that repository's ADR-0015 and ADR-0017).
+The two share no history, so moving between them is a fresh render and never a `copier update`.
 
 ## Invariants
 
@@ -30,6 +38,9 @@ These must hold whatever else changes.
   Either yq flavour, probed by capability rather than by version string.
 - **This repository obeys the standard it ships.**
   Its own `knowledge/` is validated in CI by the very script under `template/`.
+- **An RKA bundle is an OKF bundle.**
+  The profile narrows OKF's reserved keys and never redefines them; a rule that would make a conformant OKF consumer read a shipped document wrongly is a defect in the profile, not a dialect of it (ADR-0006).
+  The `status` collision that motivated this invariant made a retired document read as live, which is the failure the lifecycle exists to prevent.
 - **Shipped markdown carries no em dash.**
 
 ## Hard constraints

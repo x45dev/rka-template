@@ -106,11 +106,38 @@ gate_bats() {
 # implements without matching itself.
 gate_em_dash() {
     info "em dash"
-    if grep -rPn '\x{2014}' --include='*.md' "${REPO_ROOT}"; then
-        error "em dash found; use a plain dash instead"
-        return 1
-    fi
-    return 0
+    # Match the UTF-8 bytes, not a PCRE code point, and never read an error as a
+    # clean run. Both halves of that were live defects.
+    #
+    # `grep -rPn '\x{2014}'` is only valid when grep is in UTF-8 mode. Under a
+    # non-UTF-8 locale - LANG and LC_ALL unset, which is the default in a bare
+    # container and in several CI images - PCRE rejects the escape as out of
+    # range, grep exits 2, and the `if grep ...; then` that used to wrap it read
+    # that failure as "no match found". The gate then passed on a file
+    # containing an em dash, which is the one outcome a gate must never produce.
+    # Reproduced by running this gate over a file holding U+2014 with LANG
+    # unset: no output, exit 0, gate green.
+    #
+    # -F over the literal bytes has no locale dependency at all, so the fix does
+    # not rest on a particular locale being installed. The pattern is built with
+    # printf rather than written literally to keep this file's own source ASCII.
+    local em_dash output status
+    em_dash=$(printf '\xe2\x80\x94')
+    output=$(grep -rnF --include='*.md' -e "${em_dash}" "${REPO_ROOT}") && status=0 || status=$?
+    case "${status}" in
+        0)
+            printf '%s\n' "${output}"
+            error "em dash found; use a plain dash instead"
+            return 1
+            ;;
+        1)
+            return 0
+            ;;
+        *)
+            error "the em-dash grep exited ${status}; this gate did not run"
+            return 1
+            ;;
+    esac
 }
 
 _require_render() {

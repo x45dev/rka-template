@@ -4,6 +4,29 @@ A [Copier](https://copier.readthedocs.io/) template that drops the Repository Kn
 RKA treats a project's durable knowledge as a first-class artifact: decisions, constraints, and discoveries live in versioned documents under `knowledge/`, each carrying a frontmatter `status` that records who may change it and how far to trust it, with promotion to `canonical` gated on human review backed by evidence.
 This template ships that layer and nothing else - the seed documents, the entry point for AI coding agents, a dependency-light frontmatter validator, and the validator's own test suite.
 
+## RKA is a profile of OKF
+
+RKA does not compete with [Google Cloud's Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md); it is a **profile** of it (`ADR-0006`).
+
+* **OKF v0.2 is the baseline.** A knowledge bundle is a directory of markdown files with YAML frontmatter. `type` is the one required field. `index.md` and `log.md` are reserved for bundle structure. Conformance is deliberately permissive: a consumer must not reject a bundle for unknown `type` values, unknown keys, missing optional fields, broken cross-links, or a missing index.
+* **RKA is what you add on top.** Document identity (`id`, with id/filename conventions), `version`, the ADR shape (`adr_status`), the governed spec-bundle lifecycle, the mandatory constitution, bundle-index integrity, and the extraction-record rule - the things OKF's non-goals put deliberately out of scope.
+* **The profile narrows OKF's reserved keys; it never redefines them.** `status` takes OKF's `draft | stable | deprecated`. The trust axis - what RKA calls `canonical` - lives in OKF's `verified`, where a `human:<id>` actor is what confers the human-reviewed tier. That is the mechanism behind "nothing becomes canonical without a human deciding it", and unlike the prose version of that rule, a validator can check it.
+
+An RKA bundle is therefore an OKF bundle, and adopting this template into a repository that already speaks OKF is additive rather than a migration.
+
+> **Status:** `ADR-0006` is *proposed*. The reconciled schema is not yet the shipped one - what ships today still uses RKA's `draft | active | canonical | archived` vocabulary and a `date` field. Until the migration lands, a bundle from this template targets OKF v0.1 rather than v0.2.
+
+## Which template do I want?
+
+| You want | Take |
+| --- | --- |
+| The knowledge standard, dropped into a repo that already has its own toolchain | **this template** |
+| A repository that starts already tooled - mise, lefthook, git-cliff, SOPS, lint gate - with the knowledge layer as one part of it | `github.com/x45dev/workspace-template` |
+| A FastAPI + Astro application scaffold as well | the same, with `include_app` |
+
+The two share no commit, so moving between them is a fresh render, never a `copier update`.
+(`workspace-template` is deliberately named rather than linked: it is private, so a link resolves to a 404 for most readers of this file.)
+
 ## Usage
 
 ```bash

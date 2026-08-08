@@ -2,8 +2,8 @@
 id: context
 title: Context
 status: canonical
-version: 0.1.0
-date: 2026-07-31
+version: 0.2.0
+date: 2026-08-08
 type: context
 ---
 
@@ -19,6 +19,10 @@ Nothing else arrives, so running it at the root of an existing repository is saf
 
 The second audience is a greenfield project that wants the governance layer without committing to any particular tooling.
 Both get the same render; the template has no toggles.
+
+The third audience is a project that already speaks OKF and wants more than the baseline gives it.
+OKF specifies the container and one required field; it deliberately excludes identity, versioning, ADR conventions, spec-bundle lifecycle, and any notion of review or promotion.
+This template supplies exactly that gap as a profile (ADR-0006), so adopting it is additive to an existing OKF bundle rather than a migration away from one.
 
 ## System patterns
 
@@ -38,6 +42,10 @@ Both get the same render; the template has no toggles.
 
 ## Technical context
 
+- **The standard has two tiers.**
+  OKF v0.2 is the baseline (`GoogleCloudPlatform/knowledge-catalog`, `okf/SPEC.md`), and RKA is the profile above it (ADR-0006).
+  The baseline is external and versioned, and has already made two breaking changes between v0.1 and v0.2 (`timestamp` becoming `generated.at`, and the body `# Citations` list becoming frontmatter `sources`), so tracking it is a standing obligation rather than a one-off adoption.
+  A bundle declares which revision it targets with `okf_version` in a bundle-root `index.md`, the only place OKF permits frontmatter in an index.
 - **Copier 9.x** is the engine, with `_subdirectory: template` and `_templates_suffix: ""`.
 - **The shipped validator** is bash, awk, yq and jq only.
   It probes yq by capability (`yq -o=json` first, then bare `yq`) so either the Go or the Python flavour works.

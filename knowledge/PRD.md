@@ -2,8 +2,8 @@
 id: PRD
 title: Product Requirements Document
 status: canonical
-version: 0.2.0
-date: 2026-08-03
+version: 0.3.0
+date: 2026-08-08
 type: prd
 ---
 
@@ -16,9 +16,15 @@ This is the PRD for **the template itself**, not for a project generated from it
 The RKA governance template is a single-purpose Copier template.
 It delivers the Repository Knowledge Architecture governance layer into a new or existing repository and carries no other layer.
 
+RKA is a **profile of Google Cloud's Open Knowledge Format v0.2** (ADR-0006).
+OKF is the baseline: a directory of markdown files with YAML frontmatter, `type` as the one required field, `index.md` and `log.md` reserved for bundle structure, and permissive conformance that forbids rejecting a bundle for unknown types, unknown keys, missing optional fields, broken links, or a missing index.
+The profile adds identity, versioning, the ADR and spec-bundle shapes, the mandatory constitution, bundle-index integrity, the extraction-record rule, and the human-gated promotion discipline - the things OKF's non-goals put out of scope.
+An RKA bundle is an OKF bundle; the profile narrows OKF's reserved keys and never redefines them.
+
 ## 2. Goals
 
 - Let a repository adopt RKA without adopting a toolchain, a lint preset, or CI configuration alongside it.
+- Keep the profile strictly additive to the OKF baseline, so a repository that already speaks OKF adopts RKA without migrating away from anything, and a repository that adopts RKA gets OKF conformance for free.
 - Make the render safe to run at the root of an existing repository.
 - Keep the shipped validator runnable on a machine that has only bash, awk, yq and jq.
 - Prove, in this repository's own CI, that the standard being shipped is the standard being practised.
