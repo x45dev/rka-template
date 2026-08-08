@@ -4,17 +4,18 @@ A [Copier](https://copier.readthedocs.io/) template that drops the Repository Kn
 RKA treats a project's durable knowledge as a first-class artifact: decisions, constraints, and discoveries live in versioned documents under `knowledge/`, each carrying a frontmatter `status` that records who may change it and how far to trust it, with promotion to `canonical` gated on human review backed by evidence.
 This template ships that layer and nothing else - the seed documents, the entry point for AI coding agents, a dependency-light frontmatter validator, and the validator's own test suite.
 
-## RKA is a profile of OKF
+## RKA and OKF (an open question, not a settled relationship)
 
-RKA does not compete with [Google Cloud's Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md); it is a **profile** of it (`ADR-0006`).
+RKA overlaps heavily with [Google Cloud's Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md): both represent knowledge as a directory of markdown files with YAML frontmatter, and both make `type` a required field and reserve `index.md` and `log.md`. This template's validator has cited OKF for those two points since before the standards were compared properly.
 
-* **OKF v0.2 is the baseline.** A knowledge bundle is a directory of markdown files with YAML frontmatter. `type` is the one required field. `index.md` and `log.md` are reserved for bundle structure. Conformance is deliberately permissive: a consumer must not reject a bundle for unknown `type` values, unknown keys, missing optional fields, broken cross-links, or a missing index.
-* **RKA is what you add on top.** Document identity (`id`, with id/filename conventions), `version`, the ADR shape (`adr_status`), the governed spec-bundle lifecycle, the mandatory constitution, bundle-index integrity, and the extraction-record rule - the things OKF's non-goals put deliberately out of scope.
-* **The profile narrows OKF's reserved keys; it never redefines them.** `status` takes OKF's `draft | stable | deprecated`. The trust axis - what RKA calls `canonical` - lives in OKF's `verified`, where a `human:<id>` actor is what confers the human-reviewed tier. That is the mechanism behind "nothing becomes canonical without a human deciding it", and unlike the prose version of that rule, a validator can check it.
+`ADR-0006` proposes formalizing that overlap - OKF v0.2 as the baseline, RKA as a profile above it. **It is `proposed`, and an adversarial review has kept it there.** What ships today is unchanged: six required fields, `status` in `draft | active | canonical | archived`, and a `date` field. A bundle from this template targets OKF v0.1.
 
-An RKA bundle is therefore an OKF bundle, and adopting this template into a repository that already speaks OKF is additive rather than a migration.
+If you are weighing the same move for your own project, the review's findings are the useful part:
 
-> **Status:** `ADR-0006` is *proposed*. The reconciled schema is not yet the shipped one - what ships today still uses RKA's `draft | active | canonical | archived` vocabulary and a `date` field. Until the migration lands, a bundle from this template targets OKF v0.1 rather than v0.2.
+* The proposal's motivating defect was overstated. OKF section 5.4 defaults only an *absent* `status` to `stable`, and section 11's must-not-reject list covers unknown `type` values and unknown *keys*, not unknown *values* of a known key. An OKF consumer is not obliged to read `status: archived` as live; the behaviour is simply undefined.
+* Two of RKA's rules - bundle-index completeness, and rejecting an index entry that does not resolve - are things OKF section 11 explicitly forbids a *consumer* from rejecting a bundle over. RKA applies them producer-side, as a house gate on its own bundles, which is defensible; describing them as "what OKF declines to specify" is not, because OKF specifies them and says the opposite.
+* Relocating RKA's `canonical` onto OKF's `verified` would reproduce the very defect the proposal targets: `verified` is an append-only event list, so a document archived after human review still derives as human-reviewed unless provenance is deleted.
+* A validator can check that a string begins with `human:`; it cannot check that a human wrote it. Any claim that this makes promotion mechanically enforceable is false without an out-of-band signal such as a commit signature or a protected-branch attestation.
 
 ## Which template do I want?
 

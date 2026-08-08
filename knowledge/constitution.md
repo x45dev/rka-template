@@ -17,10 +17,9 @@ This repository is a Copier template that delivers the Repository Knowledge Arch
 It exists so that a project can adopt RKA without also adopting somebody else's toolchain.
 The predecessor template bundled governance with a task runner, a lint preset, and an application scaffold; adopting the standard meant taking all three or hand-extracting the part you wanted.
 
-RKA is a **profile of Google Cloud's Open Knowledge Format v0.2**, not a rival to it (ADR-0006).
-OKF supplies the baseline - a directory of markdown files with YAML frontmatter, `type` as the one required field, `index.md` and `log.md` reserved for bundle structure, permissive conformance.
-The profile adds what OKF's non-goals deliberately exclude: document identity, versioning, the ADR and spec-bundle shapes, the mandatory constitution, and the human-gated promotion discipline.
-What this template distributes is therefore nameable in one line, and a consumer can take the baseline from the published specification and this template for the profile.
+ADR-0006 **proposes** recasting RKA as a profile of Google Cloud's Open Knowledge Format v0.2 rather than a freestanding standard.
+That record is unaccepted: an adversarial review found the motivating defect overstated, found two RKA rules that OKF explicitly forbids a *consumer* rejecting over (bundle-index completeness, and unresolved index entries - defensible as a producer-side house gate, but not describable as "what OKF declines to specify"), and found the proposed relocation of `canonical` onto OKF's `verified` reproduces the defect it targets.
+Until it is settled, RKA stands on its own terms and this template ships it unchanged.
 
 The sibling `github.com/x45dev/workspace-template` distributes a *workspace* - the same knowledge layer plus a `.config/` tooling preset and an optional FastAPI + Astro application scaffold - and offers the profile as a toggle rather than as its product (ADR-0001, and that repository's ADR-0015 and ADR-0017).
 The two share no history, so moving between them is a fresh render and never a `copier update`.
@@ -38,9 +37,9 @@ These must hold whatever else changes.
   Either yq flavour, probed by capability rather than by version string.
 - **This repository obeys the standard it ships.**
   Its own `knowledge/` is validated in CI by the very script under `template/`.
-- **An RKA bundle is an OKF bundle.**
-  The profile narrows OKF's reserved keys and never redefines them; a rule that would make a conformant OKF consumer read a shipped document wrongly is a defect in the profile, not a dialect of it (ADR-0006).
-  The `status` collision that motivated this invariant made a retired document read as live, which is the failure the lifecycle exists to prevent.
+- **A rule that makes a conformant OKF consumer read a shipped document wrongly is a defect, not a dialect.**
+  This is the durable part of ADR-0006 and holds whether or not that record is accepted: where RKA and OKF describe the same key, RKA does not get to mean something else by it.
+  It is stated as a direction rather than as a satisfied property, because it is not currently satisfied - `is_reserved()` skips `index.md` and `log.md` at *any* depth, so a nested index carrying frontmatter passes RKA while violating OKF section 8.
 - **Shipped markdown carries no em dash.**
 
 ## Hard constraints
