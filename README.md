@@ -13,25 +13,23 @@ files with YAML frontmatter, `type` as the one required field, `index.md` and `l
 tolerant consumers. It has no lifecycle, no trust model and no promotion gate, which is exactly the
 layer RKA adds. They layer; they do not compete.
 
-**A pending upstream change** (`repository-knowledge-architecture` ADR-0018) adjusts that
-relationship for OKF v0.2, which specified a `status` key RKA was already using with a different
-vocabulary. It does two things:
+**OKF v0.2 specified a `status` key RKA was already using** with a different vocabulary, so RKA's
+`archived` has no defined meaning to an OKF v0.2 consumer. Three proposals in 2026-08 sought to
+resolve that by retargeting the standard; none was accepted.
 
-* **Renames RKA's lifecycle field to `rka_status`**, keeping all four values (`draft`, `active`,
-  `canonical`, `archived`) and every semantic. This vacates the shared frontmatter namespace so the
-  next OKF minor version cannot collide with RKA at all, and the validator derives an OKF `status`
-  from it so an OKF consumer still reads the lifecycle correctly.
-* **Adopts OKF v0.2's `generated` and `verified` additively**, which is what makes a document an AI
-  wrote distinguishable from one a human has actually reviewed. RKA stores no author today, so that
-  distinction is currently unrepresentable.
+* `ADR-0006` in this repository, and `workspace-template` ADR-0017, proposed making OKF the
+  substrate and shrinking RKA to a thin extension. Both re-decided a question
+  `repository-knowledge-architecture` ADR-0011 had already settled, on an overstated defect claim.
+* `repository-knowledge-architecture` ADR-0018 proposed a narrower change and was withdrawn the day
+  it was drafted: its headline benefit, distinguishing an AI-written document from a human-reviewed
+  one, **already ships** via RKA ADR-0015 and rule 10 of the reference validator, which requires a
+  promotion record to declare `Authored by:`, or `Transcribed by:` plus `Countersigned by:`.
 
-`ADR-0006` in this repository proposed something more radical - making OKF the substrate and
-shrinking RKA to a thin extension - and is **superseded**. Its central defect claim was overstated,
-and its remedy would have stored a revocable authority grant in OKF's append-only `verified` list,
-so revoking a promotion would have meant deleting provenance.
+The proportionate close for the actual gap - rename `archived` to `deprecated`, one validator
+constant - remains unexamined on its merits, and belongs upstream where the schema is normative.
 
-Until ADR-0018 arrives on a release train, this template ships six required fields with
-`status` in `draft | active | canonical | archived`, and its bundles target OKF v0.1.
+This template ships six required fields with `status` in `draft | active | canonical | archived`,
+and its bundles target OKF v0.1.
 
 ## Which template do I want?
 

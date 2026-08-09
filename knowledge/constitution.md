@@ -2,7 +2,7 @@
 id: constitution
 title: Constitution
 status: canonical
-version: 0.2.1
+version: 0.2.2
 date: 2026-08-09
 type: constitution
 ---
@@ -18,7 +18,7 @@ It exists so that a project can adopt RKA without also adopting somebody else's 
 The predecessor template bundled governance with a task runner, a lint preset, and an application scaffold; adopting the standard meant taking all three or hand-extracting the part you wanted.
 
 RKA's `knowledge/` is a conformant OKF v0.1 bundle (`repository-knowledge-architecture` ADR-0011): OKF supplies the envelope, RKA supplies the lifecycle, trust model and promotion gate that OKF does not have.
-ADR-0006 here proposed going further and making OKF the substrate; it is **superseded** by `repository-knowledge-architecture` ADR-0018, which instead namespaces RKA's lifecycle key to `rka_status` and adopts OKF v0.2's provenance fields additively.
+ADR-0006 here proposed going further and making OKF the substrate; it was reviewed and **not accepted**, and a narrower successor upstream (ADR-0018) was withdrawn on the day it was drafted.
 The standard is defined upstream, not here; this repository distributes it.
 
 The sibling `github.com/x45dev/workspace-template` distributes a *workspace* - the same knowledge layer plus a `.config/` tooling preset and an optional FastAPI + Astro application scaffold - and carries the governance layer as one toggle among three rather than as its product (ADR-0001, and that repository's ADR-0015).
