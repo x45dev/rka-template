@@ -2,8 +2,8 @@
 id: PRD
 title: Product Requirements Document
 status: canonical
-version: 0.3.0
-date: 2026-08-08
+version: 0.3.1
+date: 2026-08-09
 type: prd
 ---
 
@@ -16,10 +16,10 @@ This is the PRD for **the template itself**, not for a project generated from it
 The RKA governance template is a single-purpose Copier template.
 It delivers the Repository Knowledge Architecture governance layer into a new or existing repository and carries no other layer.
 
-RKA is a **profile of Google Cloud's Open Knowledge Format v0.2** (ADR-0006).
+RKA's governed `knowledge/` is a **conformant OKF v0.1 bundle** (`repository-knowledge-architecture` ADR-0011), and `ADR-0018` upstream retargets that to v0.2 by namespacing RKA's lifecycle key.
 OKF is the baseline: a directory of markdown files with YAML frontmatter, `type` as the one required field, `index.md` and `log.md` reserved for bundle structure, and permissive conformance that forbids rejecting a bundle for unknown types, unknown keys, missing optional fields, broken links, or a missing index.
 The profile adds identity, versioning, the ADR and spec-bundle shapes, the mandatory constitution, bundle-index integrity, the extraction-record rule, and the human-gated promotion discipline - the things OKF's non-goals put out of scope.
-An RKA bundle is an OKF bundle; the profile narrows OKF's reserved keys and never redefines them.
+RKA's own keys ride as OKF extension keys, which conformant consumers preserve; RKA does not redefine keys OKF specifies.
 
 ## 2. Goals
 

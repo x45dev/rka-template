@@ -2,13 +2,36 @@
 id: ADR-0006
 title: RKA is a profile of OKF v0.2
 status: draft
-version: 0.1.0
-date: 2026-08-08
-adr_status: proposed
+version: 0.2.0
+date: 2026-08-09
+adr_status: superseded
 type: adr
 ---
 
 # ADR-0006 - RKA is a profile of OKF v0.2
+
+> **SUPERSEDED, 2026-08-09, by `repository-knowledge-architecture` ADR-0018.** Do not implement this
+> record.
+>
+> Its central error was jurisdictional. RKA's reference repository had already settled the
+> OKF question in **ADR-0011** (canonical, accepted 2026-07-20), which declares `knowledge/` a
+> conformant OKF v0.1 bundle, keeps RKA's schema normative, and rejects merging RKA into OKF by
+> name. A downstream template does not get to re-decide the standard it distributes; the decision
+> belongs upstream, and this record should have been an issue against the reference repo rather than
+> an ADR here.
+>
+> On the substance, a deep zoom-out
+> (`repository-knowledge-architecture` `docs/reviews/zoom-out-okf-alignment-v2-2026-08-09.md`)
+> found the motivating defect overstated (corrected in place below) and the proposed remedy wrong
+> where the problem was real: OKF's `verified` is an append-only event list and cannot carry a
+> revocable authority grant, while RKA's demotion is deliberately the cheaper, fail-safe direction.
+>
+> The replacement keeps RKA's lifecycle field, renames it `rka_status` to vacate the shared
+> namespace OKF v0.2 colonised, and adopts `generated`/`verified` additively as a provenance and
+> evidence trail. That is what finally distinguishes a document an AI wrote from one a human has
+> reviewed, which is the capability this record was reaching for.
+>
+> Retained rather than deleted: the corrections and the review pointer are the audit trail.
 
 ## Context
 

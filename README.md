@@ -4,18 +4,34 @@ A [Copier](https://copier.readthedocs.io/) template that drops the Repository Kn
 RKA treats a project's durable knowledge as a first-class artifact: decisions, constraints, and discoveries live in versioned documents under `knowledge/`, each carrying a frontmatter `status` that records who may change it and how far to trust it, with promotion to `canonical` gated on human review backed by evidence.
 This template ships that layer and nothing else - the seed documents, the entry point for AI coding agents, a dependency-light frontmatter validator, and the validator's own test suite.
 
-## RKA and OKF (an open question, not a settled relationship)
+## RKA and OKF
 
-RKA overlaps heavily with [Google Cloud's Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md): both represent knowledge as a directory of markdown files with YAML frontmatter, and both make `type` a required field and reserve `index.md` and `log.md`. This template's validator has cited OKF for those two points since before the standards were compared properly.
+RKA's governed `knowledge/` directory **is a conformant OKF v0.1 bundle** and has been since
+2026-07-20 (`repository-knowledge-architecture` ADR-0011). [OKF](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md)
+is Google Cloud's Open Knowledge Format: it standardises the *envelope* - a directory of markdown
+files with YAML frontmatter, `type` as the one required field, `index.md` and `log.md` reserved,
+tolerant consumers. It has no lifecycle, no trust model and no promotion gate, which is exactly the
+layer RKA adds. They layer; they do not compete.
 
-`ADR-0006` proposes formalizing that overlap - OKF v0.2 as the baseline, RKA as a profile above it. **It is `proposed`, and an adversarial review has kept it there.** What ships today is unchanged: six required fields, `status` in `draft | active | canonical | archived`, and a `date` field. A bundle from this template targets OKF v0.1.
+**A pending upstream change** (`repository-knowledge-architecture` ADR-0018) adjusts that
+relationship for OKF v0.2, which specified a `status` key RKA was already using with a different
+vocabulary. It does two things:
 
-If you are weighing the same move for your own project, the review's findings are the useful part:
+* **Renames RKA's lifecycle field to `rka_status`**, keeping all four values (`draft`, `active`,
+  `canonical`, `archived`) and every semantic. This vacates the shared frontmatter namespace so the
+  next OKF minor version cannot collide with RKA at all, and the validator derives an OKF `status`
+  from it so an OKF consumer still reads the lifecycle correctly.
+* **Adopts OKF v0.2's `generated` and `verified` additively**, which is what makes a document an AI
+  wrote distinguishable from one a human has actually reviewed. RKA stores no author today, so that
+  distinction is currently unrepresentable.
 
-* The proposal's motivating defect was overstated. OKF section 5.4 defaults only an *absent* `status` to `stable`, and section 11's must-not-reject list covers unknown `type` values and unknown *keys*, not unknown *values* of a known key. An OKF consumer is not obliged to read `status: archived` as live; the behaviour is simply undefined.
-* Two of RKA's rules - bundle-index completeness, and rejecting an index entry that does not resolve - are things OKF section 11 explicitly forbids a *consumer* from rejecting a bundle over. RKA applies them producer-side, as a house gate on its own bundles, which is defensible; describing them as "what OKF declines to specify" is not, because OKF specifies them and says the opposite.
-* Relocating RKA's `canonical` onto OKF's `verified` would reproduce the very defect the proposal targets: `verified` is an append-only event list, so a document archived after human review still derives as human-reviewed unless provenance is deleted.
-* A validator can check that a string begins with `human:`; it cannot check that a human wrote it. Any claim that this makes promotion mechanically enforceable is false without an out-of-band signal such as a commit signature or a protected-branch attestation.
+`ADR-0006` in this repository proposed something more radical - making OKF the substrate and
+shrinking RKA to a thin extension - and is **superseded**. Its central defect claim was overstated,
+and its remedy would have stored a revocable authority grant in OKF's append-only `verified` list,
+so revoking a promotion would have meant deleting provenance.
+
+Until ADR-0018 arrives on a release train, this template ships six required fields with
+`status` in `draft | active | canonical | archived`, and its bundles target OKF v0.1.
 
 ## Which template do I want?
 

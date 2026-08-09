@@ -2,8 +2,8 @@
 id: constitution
 title: Constitution
 status: canonical
-version: 0.2.0
-date: 2026-08-08
+version: 0.2.1
+date: 2026-08-09
 type: constitution
 ---
 
@@ -17,11 +17,11 @@ This repository is a Copier template that delivers the Repository Knowledge Arch
 It exists so that a project can adopt RKA without also adopting somebody else's toolchain.
 The predecessor template bundled governance with a task runner, a lint preset, and an application scaffold; adopting the standard meant taking all three or hand-extracting the part you wanted.
 
-ADR-0006 **proposes** recasting RKA as a profile of Google Cloud's Open Knowledge Format v0.2 rather than a freestanding standard.
-That record is unaccepted: an adversarial review found the motivating defect overstated, found two RKA rules that OKF explicitly forbids a *consumer* rejecting over (bundle-index completeness, and unresolved index entries - defensible as a producer-side house gate, but not describable as "what OKF declines to specify"), and found the proposed relocation of `canonical` onto OKF's `verified` reproduces the defect it targets.
-Until it is settled, RKA stands on its own terms and this template ships it unchanged.
+RKA's `knowledge/` is a conformant OKF v0.1 bundle (`repository-knowledge-architecture` ADR-0011): OKF supplies the envelope, RKA supplies the lifecycle, trust model and promotion gate that OKF does not have.
+ADR-0006 here proposed going further and making OKF the substrate; it is **superseded** by `repository-knowledge-architecture` ADR-0018, which instead namespaces RKA's lifecycle key to `rka_status` and adopts OKF v0.2's provenance fields additively.
+The standard is defined upstream, not here; this repository distributes it.
 
-The sibling `github.com/x45dev/workspace-template` distributes a *workspace* - the same knowledge layer plus a `.config/` tooling preset and an optional FastAPI + Astro application scaffold - and offers the profile as a toggle rather than as its product (ADR-0001, and that repository's ADR-0015 and ADR-0017).
+The sibling `github.com/x45dev/workspace-template` distributes a *workspace* - the same knowledge layer plus a `.config/` tooling preset and an optional FastAPI + Astro application scaffold - and carries the governance layer as one toggle among three rather than as its product (ADR-0001, and that repository's ADR-0015).
 The two share no history, so moving between them is a fresh render and never a `copier update`.
 
 ## Invariants
