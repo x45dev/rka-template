@@ -1,5 +1,13 @@
 # RKA governance template
 
+> **Deprecated and unmaintained as of 2026-08-11. Do not adopt this template.**
+>
+> The governance layer described below has been retired in favour of a single starter repository, [`x45dev/workspace-template`](https://github.com/x45dev/workspace-template), which uses the Open Knowledge Format for its documents and ships one page of practice rather than a framework.
+> The `v0.1.0` tag has been deleted, so `copier copy` and `copier update` against a version reference now fail rather than quietly install a retired standard.
+> Repositories that already adopted this template are unaffected and keep what they have; there is no migration path and none is planned.
+>
+> This repository is archived and read-only.
+
 A [Copier](https://copier.readthedocs.io/) template that drops the Repository Knowledge Architecture (RKA) governance layer into a new or existing repository.
 RKA treats a project's durable knowledge as a first-class artifact: decisions, constraints, and discoveries live in versioned documents under `knowledge/`, each carrying a frontmatter `status` that records who may change it and how far to trust it, with promotion to `canonical` gated on human review backed by evidence.
 This template ships that layer and nothing else - the seed documents, the entry point for AI coding agents, a dependency-light frontmatter validator, and the validator's own test suite.
